@@ -1,0 +1,280 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8" /><title>sandbox</title></head>
+<body>
+<div id="site-root"></div>
+<script>
+(function () {
+  'use strict';
+  // This document is loaded via srcdoc into an <iframe sandbox="allow-scripts">
+  // WITHOUT allow-same-origin, so it has an opaque ("null") origin, its own globals,
+  // and its own prototypes — a genuinely separate realm from the parent page. It
+  // cannot read the parent's DOM/storage, and the parent cannot read this document
+  // directly; all communication is postMessage only.
+
+  var CHANNEL = 'bg-rdl';
+  var TYPES = {
+    READY: 'ready', RUN: 'run', LOG: 'log', TRACE: 'trace', NETWORK: 'network',
+    SECURITY_ALERT: 'security-alert', DOM_SNAPSHOT: 'dom-snapshot', EVENT_PATH: 'event-path', DONE: 'done',
+  };
+  var nonceSeq = 0;
+  function post(type, payload) {
+    parent.postMessage({ channel: CHANNEL, type: type, payload: payload, nonce: 'i' + (nonceSeq++) }, '*');
+  }
+
+  // --- Pristine references, captured before any site/learner code can run ---
+  var nativeFetch = window.fetch ? window.fetch.bind(window) : null;
+  var NativeXHR = window.XMLHttpRequest;
+  var nativeSendBeacon = navigator.sendBeacon ? navigator.sendBeacon.bind(navigator) : null;
+  var nativeAddEventListener = EventTarget.prototype.addEventListener;
+  var nativeConsole = { log: console.log, warn: console.warn, error: console.error, info: console.info };
+
+  var consoleHistory = [];
+  window.__consoleHistory = consoleHistory;
+  ['log', 'warn', 'error', 'info'].forEach(function (level) {
+    console[level] = function () {
+      var args = Array.prototype.slice.call(arguments);
+      nativeConsole[level].apply(console, args);
+      var text = args.map(serializeArg).join(' ');
+      consoleHistory.push({ level: level, text: text });
+      post(TYPES.LOG, { level: level, text: text });
+    };
+  });
+
+  function serializeArg(v) {
+    try {
+      if (v === undefined) return 'undefined';
+      if (typeof v === 'function') return 'ƒ ' + (v.name || '(anonymous)') + '()';
+      if (v instanceof Error) return v.name + ': ' + v.message;
+      if (typeof v === 'object' && v !== null) return JSON.stringify(v);
+      return String(v);
+    } catch (e) { return '[unserializable value]'; }
+  }
+
+  // --- Mock network layer: nothing ever leaves this sandbox for real. ---
+  var mockRoutes = [];
+  window.__registerMockRoute = function (matcher, responder) {
+    mockRoutes.push({ matcher: matcher, responder: responder });
+  };
+  function resolveMock(method, url, body) {
+    for (var i = 0; i < mockRoutes.length; i++) {
+      if (mockRoutes[i].matcher(method, url, body)) return mockRoutes[i].responder(method, url, body);
+    }
+    return { status: 404, body: { error: 'no mock route registered for ' + method + ' ' + url } };
+  }
+  var networkLog = [];
+  window.__networkLog = networkLog;
+  function logNetwork(entry) { networkLog.push(entry); post(TYPES.NETWORK, entry); }
+
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || String(input);
+    var method = (init && init.method) || 'GET';
+    var body = init && init.body;
+    var startedAt = performance.now();
+    logNetwork({ api: 'fetch', method: method, url: url, requestBody: body, timestamp: Date.now() });
+    return new Promise(function (resolve) {
+      var mocked = resolveMock(method, url, body);
+      var responseBody = mocked.body;
+      var response = new Response(JSON.stringify(responseBody), {
+        status: mocked.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      response.__mockedBody = responseBody;
+      logNetwork({ api: 'fetch', method: method, url: url, status: mocked.status, durationMs: performance.now() - startedAt, timestamp: Date.now(), phase: 'response' });
+      resolve(response);
+    });
+  };
+
+  function PatchedXHR() {
+    var xhr = new NativeXHR();
+    var method, url;
+    var origOpen = xhr.open.bind(xhr);
+    var origSend = xhr.send.bind(xhr);
+    xhr.open = function (m, u) { method = m; url = u; return origOpen.apply(xhr, arguments); };
+    xhr.send = function (body) {
+      logNetwork({ api: 'xhr', method: method, url: url, requestBody: body, timestamp: Date.now() });
+      var mocked = resolveMock(method, url, body);
+      setTimeout(function () {
+        Object.defineProperty(xhr, 'status', { value: mocked.status, configurable: true });
+        Object.defineProperty(xhr, 'responseText', { value: JSON.stringify(mocked.body), configurable: true });
+        Object.defineProperty(xhr, 'readyState', { value: 4, configurable: true });
+        logNetwork({ api: 'xhr', method: method, url: url, status: mocked.status, timestamp: Date.now(), phase: 'response' });
+        xhr.dispatchEvent(new Event('readystatechange'));
+        xhr.dispatchEvent(new Event('load'));
+      }, 0);
+      return origSend(body);
+    };
+    return xhr;
+  }
+  window.XMLHttpRequest = PatchedXHR;
+
+  navigator.sendBeacon = function (url, data) {
+    logNetwork({ api: 'sendBeacon', method: 'POST', url: url, requestBody: data ? String(data) : undefined, timestamp: Date.now() });
+    resolveMock('POST', url, data);
+    return true;
+  };
+
+  // Image-beacon exfiltration (`new Image().src = url`) is a classic skimmer channel.
+  // We log it as network activity WITHOUT ever forwarding to the native setter, so no
+  // real GET request is ever actually issued from this sandbox.
+  Object.defineProperty(HTMLImageElement.prototype, 'src', {
+    configurable: true,
+    get: function () { return this.getAttribute('data-mock-src') || ''; },
+    set: function (value) {
+      // A mission's policy code can install window.__imagePolicy(url) -> boolean to
+      // decide, in real time and BEFORE the (mocked) request would go out, whether to
+      // allow or block a given outbound image beacon.
+      var allowed = true;
+      if (typeof window.__imagePolicy === 'function') {
+        try { allowed = !!window.__imagePolicy(value); } catch (e) { allowed = true; }
+      }
+      if (!allowed) {
+        post(TYPES.SECURITY_ALERT, { level: 'high', message: 'Blocked outbound image beacon to ' + value, source: 'runtime-policy', timestamp: Date.now() });
+        this.setAttribute('data-mock-src', 'blocked:' + value);
+        return;
+      }
+      logNetwork({ api: 'image-beacon', method: 'GET', url: value, timestamp: Date.now() });
+      resolveMock('GET', value);
+      this.setAttribute('data-mock-src', value);
+    },
+  });
+
+  // --- Event listener registration tracking (for instrumentation missions) ---
+  var listenerLog = [];
+  EventTarget.prototype.addEventListener = function (type, listener, options) {
+    listenerLog.push({ target: describeNode(this), type: type, capture: !!(options && options.capture === true) || options === true });
+    return nativeAddEventListener.call(this, type, listener, options);
+  };
+  window.__getListenerLog = function () { return listenerLog.slice(); };
+
+  function describeNode(node) {
+    if (!node || node === window) return 'window';
+    if (node === document) return 'document';
+    if (!node.tagName) return String(node);
+    var id = node.id ? '#' + node.id : '';
+    var cls = node.className && typeof node.className === 'string' ? '.' + node.className.split(' ').join('.') : '';
+    return node.tagName.toLowerCase() + id + cls;
+  }
+
+  // --- DOM snapshot serializer ---
+  function snapshotNode(node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      var text = node.textContent.trim();
+      return text ? { text: text } : null;
+    }
+    if (node.nodeType !== Node.ELEMENT_NODE) return null;
+    var attrs = {};
+    for (var i = 0; i < node.attributes.length; i++) {
+      attrs[node.attributes[i].name] = node.attributes[i].value;
+    }
+    var children = [];
+    node.childNodes.forEach(function (child) {
+      var snap = snapshotNode(child);
+      if (snap) children.push(snap);
+    });
+    return { tag: node.tagName.toLowerCase(), attrs: attrs, children: children };
+  }
+  window.__snapshotDom = function (selector) {
+    var root = selector ? document.querySelector(selector) : document.getElementById('site-root');
+    return root ? snapshotNode(root) : null;
+  };
+
+  // --- Security alerts: mission setup/policy code calls this to surface findings ---
+  var securityAlertsLog = [];
+  window.__securityAlertsLog = securityAlertsLog;
+  window.__securityAlert = function (level, message, source) {
+    var entry = { level: level, message: message, source: source || null, timestamp: Date.now() };
+    securityAlertsLog.push(entry);
+    post(TYPES.SECURITY_ALERT, entry);
+  };
+
+  // --- Simulated "expensive" work a naive monitor might run per DOM mutation. Real
+  // synchronous cost (so measured elapsed time is genuine), plus a call counter so
+  // performance missions can grade "did you stop calling this on every single node"
+  // deterministically instead of relying on flaky wall-clock thresholds. ---
+  window.__expensiveScanCalls = 0;
+  window.__expensiveScan = function () {
+    window.__expensiveScanCalls += 1;
+    var x = 0;
+    for (var i = 0; i < 20000; i += 1) x += i;
+    return x;
+  };
+
+  // --- Traced event dispatch for the event-path visualizer ---
+  window.__dispatchTracedEvent = function (selector, eventType) {
+    var target = document.querySelector(selector);
+    if (!target) { post(TYPES.EVENT_PATH, { error: 'target not found: ' + selector }); return; }
+    var chain = [];
+    var n = target.parentNode;
+    while (n) { chain.push(n); n = n.parentNode; }
+    var recorded = [];
+    var ancestors = chain.slice().reverse(); // document->...->parent
+    // `ancestors` already starts with `document` (the top of the parentNode chain),
+    // so don't prepend it again — that previously double-registered listeners on the
+    // real document object and made it appear twice in the recorded path.
+    var allNodes = ancestors.concat([target]);
+    var tempHandlers = [];
+    allNodes.forEach(function (node) {
+      var captureHandler = function (e) {
+        recorded.push({ node: describeNode(node), phase: node === target ? 'target' : 'capture', isTarget: node === target });
+      };
+      var bubbleHandler = function (e) {
+        if (node === target) return; // already recorded once during the capture pass above
+        recorded.push({ node: describeNode(node), phase: 'bubble', isTarget: false });
+      };
+      nativeAddEventListener.call(node, eventType, captureHandler, true);
+      nativeAddEventListener.call(node, eventType, bubbleHandler, false);
+      tempHandlers.push({ node: node, captureHandler: captureHandler, bubbleHandler: bubbleHandler });
+    });
+    target.dispatchEvent(new MouseEvent(eventType, { bubbles: true, cancelable: true }));
+    tempHandlers.forEach(function (h) {
+      h.node.removeEventListener(eventType, h.captureHandler, true);
+      h.node.removeEventListener(eventType, h.bubbleHandler, false);
+    });
+    post(TYPES.EVENT_PATH, { path: recorded });
+  };
+
+  window.__report = function (value) {
+    var snap = window.__snapshotDom();
+    if (snap) post(TYPES.DOM_SNAPSHOT, { tree: snap });
+    post(TYPES.DONE, { returnValue: value, error: null, consoleHistory: consoleHistory, networkLog: networkLog });
+  };
+
+  window.addEventListener('error', function (e) {
+    post(TYPES.LOG, { level: 'error', text: 'Uncaught: ' + e.message });
+  });
+
+  window.addEventListener('unhandledrejection', function (e) {
+    e.preventDefault();
+    var reason = e.reason;
+    var text = reason instanceof Error ? reason.message : String(reason);
+    post(TYPES.LOG, { level: 'error', text: 'Uncaught (in promise): ' + text });
+    consoleHistory.push({ level: 'error', text: 'Uncaught (in promise): ' + text });
+  });
+
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+    if (!data || data.channel !== CHANNEL || data.type !== TYPES.RUN) return;
+    var payload = data.payload;
+    try {
+      document.getElementById('site-root').innerHTML = payload.siteHtml || '';
+      // setupScript, code, and testScript run as ONE combined function body (not three
+      // separate new Function() calls) so a function/var declared in the learner's
+      // `code` is visible by name to the mission's `testScript` afterward — three
+      // separate calls would each get their own function scope and never see each
+      // other's declarations, even though both would still share the real DOM.
+      var combined = (payload.setupScript || '') + '\n' + (payload.code || '') + '\n' + (payload.testScript || '');
+      new Function(combined)();
+      if (!payload.testScript) window.__report(undefined);
+      // testScript (when present) is responsible for calling __report() itself.
+    } catch (err) {
+      post(TYPES.LOG, { level: 'error', text: 'Uncaught: ' + err.message });
+      post(TYPES.DONE, { returnValue: undefined, error: err.message, consoleHistory: consoleHistory, networkLog: networkLog });
+    }
+  });
+
+  post(TYPES.READY, {});
+})();
+</script>
+</body>
+</html>

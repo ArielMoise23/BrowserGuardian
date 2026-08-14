@@ -1,0 +1,14 @@
+{
+  "name": "browser-guardian-runtime-defense-lab",
+  "version": "0.1.0",
+  "description": "Browser Guardian: Runtime Defense Lab — a hands-on JavaScript & browser-security training game.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,11 @@
+.btn, .mission-row, a { transition: color 0.12s ease, border-color 0.12s ease, background-color 0.12s ease; }
+.score-meter__fill, .skill-bar__fill { transition: width 0.4s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

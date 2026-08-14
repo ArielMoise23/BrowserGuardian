@@ -1,0 +1,38 @@
+<title>Browser Guardian: Runtime Defense Lab</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="A hands-on JavaScript runtime & browser-security training lab." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🛡️</text></svg>" />
+<link rel="stylesheet" href="/styles/reset.css" />
+<link rel="stylesheet" href="/styles/tokens.css" />
+<link rel="stylesheet" href="/styles/layout.css" />
+<link rel="stylesheet" href="/styles/components.css" />
+<link rel="stylesheet" href="/styles/panels.css" />
+<link rel="stylesheet" href="/styles/motion.css" />
+
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="app-header" role="banner">
+  <div class="app-header__brand">
+    <a href="#/map" class="app-header__logo" aria-label="Browser Guardian home">
+      <span class="app-header__logo-mark" aria-hidden="true">&gt;_</span>
+      <span class="app-header__logo-text">Browser Guardian<span class="app-header__logo-sub">Runtime Defense Lab</span></span>
+    </a>
+  </div>
+  <nav class="app-header__nav" aria-label="Primary">
+    <a href="#/map">Mission Map</a>
+    <a href="#/interview">Interview Mode</a>
+    <a href="#/settings">Settings</a>
+  </nav>
+  <div class="app-header__status" id="header-status" aria-live="polite"></div>
+</header>
+
+<main id="main" class="app-main" tabindex="-1"></main>
+
+<footer class="app-footer">
+  <p>All attacks and exfiltration are simulated locally in an isolated sandbox. No real network requests, real credentials, or real websites are involved.</p>
+</footer>
+
+<div id="toast-root" class="toast-root" aria-live="assertive"></div>
+
+<script type="module" src="/src/app.js"></script>

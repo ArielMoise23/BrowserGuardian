@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(node check.js)",
+      "Bash(node check2.js)",
+      "Bash(node debug1.js)",
+      "Bash(node debug2.js)",
+      "Bash(node check3.js)",
+      "Bash(node --test tests/)",
+      "Bash(node --test ./tests)",
+      "Bash(node --test 'tests/**/*.test.js')",
+      "Bash(node --test tests)",
+      "Bash(node --test)",
+      "Bash(npm test *)",
+      "Bash(node check4.js)"
+    ]
+  }
+}
