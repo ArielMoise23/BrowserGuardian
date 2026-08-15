@@ -80,7 +80,7 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
 
   const labsSection = el('div', { class: 'card' }, [
     el('h2', {}, '5. Micro-labs'),
-    el('p', {}, 'Each lab is graded on what your code actually does, not on matching a fixed answer string. Multiple valid solutions are accepted.'),
+    el('p', {}, 'Each lab is graded on what your code actually does, not on matching a fixed answer string — multiple valid solutions are accepted. Submitting reveals a full explanation, so treat each attempt as part of the lesson, not just a pass/fail check.'),
     ...lesson.labs.map((lab) => {
       const { element } = renderLabRunner(lab, {
         onResult: (result) => {
@@ -102,7 +102,7 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
   }
   renderReadiness();
 
-  const notesPanel = renderPanel('Your notes', noteArea, { flush: true });
+  const notesPanel = renderPanel('Your Notes', noteArea, { flush: true });
 
   const view = el('div', { class: 'mission-view' }, [
     header,
@@ -171,12 +171,12 @@ function renderExampleSection(lesson) {
   const resetBtn = el('button', { class: 'btn btn--sm', onClick: reset }, 'Reset example');
 
   const rightColPanels = [];
-  if (panelsWanted.includes('trace')) rightColPanels.push(renderPanel('Execution trace', renderTraceStepper(controller)));
+  if (panelsWanted.includes('trace')) rightColPanels.push(renderPanel('Execution Trace', renderTraceStepper(controller)));
   rightColPanels.push(renderPanel('Console', controller.slots.consoleSlot));
-  if (panelsWanted.includes('dom')) rightColPanels.push(renderPanel('DOM inspector', controller.slots.domSlot));
-  if (panelsWanted.includes('network')) rightColPanels.push(renderPanel('Network activity', controller.slots.networkSlot, { flush: true }));
-  if (panelsWanted.includes('alerts')) rightColPanels.push(renderPanel('Security alerts', controller.slots.alertsSlot));
-  if (panelsWanted.includes('eventPath')) rightColPanels.push(renderPanel('Event path', controller.slots.eventPathSlot));
+  if (panelsWanted.includes('dom')) rightColPanels.push(renderPanel('DOM Inspector', controller.slots.domSlot));
+  if (panelsWanted.includes('network')) rightColPanels.push(renderPanel('Network Activity', controller.slots.networkSlot, { flush: true }));
+  if (panelsWanted.includes('alerts')) rightColPanels.push(renderPanel('Security Alerts', controller.slots.alertsSlot));
+  if (panelsWanted.includes('eventPath')) rightColPanels.push(renderPanel('Event Path', controller.slots.eventPathSlot));
 
   return el('div', { class: 'card' }, [
     el('h2', {}, '3–4. Try it: predict, run, observe, modify'),
@@ -219,7 +219,7 @@ function renderKnowledgeCheck(lesson) {
     return el('div', { class: 'card' }, bodySlot);
   });
 
-  return el('div', {}, [el('h2', {}, '7. Knowledge check'), ...cards]);
+  return el('div', {}, [el('h2', {}, '6. Knowledge check'), ...cards]);
 }
 
 function buildReadinessSection(lesson) {
@@ -233,12 +233,12 @@ function buildReadinessSection(lesson) {
   const section = (title, content) => el('div', { class: 'debrief__section' }, [el('h3', {}, title), content]);
 
   return el('div', { class: 'card' }, [
-    el('h2', {}, '8. Mission readiness'),
+    el('h2', {}, '7. Mission readiness'),
     section('Mastered', mastered.length ? el('ul', {}, mastered.map((l) => el('li', {}, l.title))) : el('p', {}, 'Nothing yet — work through the labs above.')),
     needsReview.length ? section('Needs review', el('ul', {}, needsReview.map((l) => el('li', {}, l.title)))) : null,
     notStarted.length ? section('Still to try', el('ul', {}, notStarted.map((l) => el('li', {}, l.title)))) : null,
     relatedMissions.length
-      ? section('Recommended mission', el('ul', {}, relatedMissions.map((m) => el('li', {}, el('a', { href: `#/mission/${m.id}` }, m.title)))))
+      ? section(relatedMissions.length > 1 ? 'Recommended missions' : 'Recommended mission', el('ul', {}, relatedMissions.map((m) => el('li', {}, el('a', { href: `#/mission/${m.id}` }, m.title)))))
       : null,
     section('Possible interview questions on this lesson', el('ol', {}, lesson.interviewQuestions.map((q) => el('li', {}, q)))),
   ].filter(Boolean));

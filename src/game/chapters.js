@@ -1,6 +1,6 @@
 export const CHAPTERS = [
   { number: 1, id: 'runtime-reboot', title: 'JavaScript Runtime Reboot', summary: 'Scope, closures, prototypes, this, and the primitives you\'re expected to already know cold.' },
-  { number: 2, id: 'execution-under-the-hood', title: 'Execution Under the Hood', summary: 'Call stack, heap, event loop, tasks vs microtasks — visualized, not just described.' },
+  { number: 2, id: 'execution-under-the-hood', title: 'Execution Under the Hood', summary: 'Call stack, heap, event loop, tasks vs. microtasks — visualized, not just described.' },
   { number: 3, id: 'dom-and-events', title: 'DOM and Browser Events', summary: 'Capturing, bubbling, delegation, and the DOM APIs attackers and defenders both rely on.' },
   { number: 4, id: 'browser-architecture', title: 'Browser Architecture and Isolation', summary: 'Processes, origins, realms, iframes, and the boundaries that actually enforce security.' },
   { number: 5, id: 'network-behavior', title: 'Network Behavior', summary: 'Fetch, CORS, cookies, and what a page can and cannot see about its own requests.' },

@@ -8,10 +8,7 @@ import { showToast } from './toast.js';
 import { createRunController, renderTraceStepper } from './sandbox-run-controller.js';
 import { buildResult } from '../game/scoring.js';
 import { revealNext } from '../game/hints.js';
-
-const LAB_TYPE_LABELS = {
-  predict: 'Predict', modify: 'Modify', implement: 'Implement', break: 'Break it', defend: 'Defend it',
-};
+import { labTypeLabel } from '../game/lessonSchema.js';
 
 /**
  * A compact, embeddable lab card — reuses the exact same sandbox/scoring/hint engine
@@ -108,22 +105,22 @@ export function renderLabRunner(lab, { onResult } = {}) {
   const leftCol = [
     lab.runner === 'iframe' ? renderPanel('Simulation', previewHost, { flush: true }) : null,
     lab.sourceCode ? renderPanel('Code', el('pre', { class: 'code-source' }, lab.sourceCode)) : null,
-    editor ? renderPanel('Your code', editor.element, { flush: true }) : renderPanel('Your answer', answerForm),
+    editor ? renderPanel('Your Code', editor.element, { flush: true }) : renderPanel('Your Answer', answerForm),
     lab.hints.length ? renderPanel('Hints', hintsSlot) : null,
   ].filter(Boolean);
 
   const rightColPanels = [];
-  if (panelsWanted.includes('trace')) rightColPanels.push(renderPanel('Execution trace', renderTraceStepper(controller)));
+  if (panelsWanted.includes('trace')) rightColPanels.push(renderPanel('Execution Trace', renderTraceStepper(controller)));
   if (lab.runner !== 'none') rightColPanels.push(renderPanel('Console', controller.slots.consoleSlot));
-  if (panelsWanted.includes('dom')) rightColPanels.push(renderPanel('DOM inspector', controller.slots.domSlot));
-  if (panelsWanted.includes('network')) rightColPanels.push(renderPanel('Network activity', controller.slots.networkSlot, { flush: true }));
-  if (panelsWanted.includes('alerts')) rightColPanels.push(renderPanel('Security alerts', controller.slots.alertsSlot));
-  if (panelsWanted.includes('eventPath')) rightColPanels.push(renderPanel('Event path', controller.slots.eventPathSlot));
+  if (panelsWanted.includes('dom')) rightColPanels.push(renderPanel('DOM Inspector', controller.slots.domSlot));
+  if (panelsWanted.includes('network')) rightColPanels.push(renderPanel('Network Activity', controller.slots.networkSlot, { flush: true }));
+  if (panelsWanted.includes('alerts')) rightColPanels.push(renderPanel('Security Alerts', controller.slots.alertsSlot));
+  if (panelsWanted.includes('eventPath')) rightColPanels.push(renderPanel('Event Path', controller.slots.eventPathSlot));
 
   const element = el('section', { class: 'card lab-card', id: `lab-${lab.id}` }, [
     el('div', { class: 'lab-card__head' }, [
       el('div', {}, [
-        el('span', { class: 'badge badge--accent' }, LAB_TYPE_LABELS[lab.type] ?? lab.type),
+        el('span', { class: 'badge badge--accent' }, labTypeLabel(lab.type)),
         el('strong', {}, ` ${lab.title}`),
       ]),
       el('div', { class: 'btn-row' }, [runBtn, resetBtn, submitBtn, solutionBtn]),
@@ -152,7 +149,7 @@ function renderFeedback(lab, result) {
     .map(([key, label]) => renderScoreMeter(label, result.score[key]));
 
   return el('div', { class: 'debrief' }, [
-    el('h4', {}, result.passed ? 'Correct' : 'Not yet'),
+    el('h4', {}, result.passed ? 'Passed' : 'Not yet'),
     el('div', { class: 'debrief__score-grid' }, meters),
     result.feedback.length ? el('ul', {}, result.feedback.map((f) => el('li', {}, f))) : null,
     el('p', {}, lab.explanation),

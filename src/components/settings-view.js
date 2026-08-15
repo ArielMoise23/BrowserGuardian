@@ -1,9 +1,10 @@
 import { el, mount } from '../utils/dom.js';
 import { store } from '../state/store.js';
 import { showToast } from './toast.js';
+import { renderSkillBars } from './skill-radar.js';
 
 export function renderSettings(state) {
-  const container = el('div', { class: 'card', style: 'max-width:520px' });
+  const container = el('div', { class: 'card', style: 'max-width:640px' });
 
   function draw() {
     const current = store.getState();
@@ -18,6 +19,10 @@ export function renderSettings(state) {
         )),
       ]),
       el('p', {}, 'Your OS-level "prefers reduced motion" setting is always respected regardless of this option.'),
+      el('hr', {}),
+      el('h2', {}, 'Skill ratings'),
+      el('p', {}, 'Updated by mission and lab results and by self-scored Interview Mode answers. 50 is the untested starting point for every category, not a passing grade.'),
+      renderSkillBars(current.skills),
       el('hr', {}),
       el('h2', {}, 'Reset progress'),
       el('p', {}, 'Clears all XP, mission completions, skill ratings, and achievements from this browser. This cannot be undone.'),

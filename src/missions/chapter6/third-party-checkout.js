@@ -116,7 +116,7 @@ export default {
   hints: [
     'Look at what actually appeared in the console and the security alerts panel — don\'t reason about what the widget "should" be able to do, read what it did.',
     'There is no <iframe> anywhere in this simulation — the widget script was concatenated straight into the page\'s own execution, exactly like a real `<script src="...">` tag with no sandbox attribute.',
-    'The only capability real browsers block regardless of realm is reading an HttpOnly cookie or making a truly cross-origin read without CORS permission — everything same-realm-DOM-related (fields, listeners, prototypes) is fully open.',
+    'Within this same-realm, same-origin scenario, the only thing the browser itself withholds from JavaScript is an HttpOnly cookie — everything DOM-related (fields, listeners, prototypes) is fully open to any script running in that realm, regardless of whether a vendor calls itself "trusted."',
   ],
 
   solution: 'sameRealm: False. Capabilities: all four same-realm actions are true, "Read an HttpOnly cookie" is false. Mitigation: isolate the sensitive field in a separate realm (cross-origin/sandboxed iframe) — same-realm JavaScript restrictions (naming conventions, "internal" variables, even CSP) do not stop a co-located script from reading the DOM, because it has full, unrestricted access to any element in the shared document.',

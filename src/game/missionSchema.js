@@ -10,6 +10,24 @@ export const MISSION_TYPES = [
   'boss-battle',
 ];
 
+// Display labels for MISSION_TYPES — the single source of truth for how a mission's
+// type renders as a badge, so the map and the mission page can never drift apart.
+export const MISSION_TYPE_LABELS = {
+  'predict-output': 'Predict Output',
+  'code-repair': 'Code Repair',
+  'attack-investigation': 'Attack Investigation',
+  'runtime-defense': 'Runtime Defense',
+  debugging: 'Debugging',
+  performance: 'Performance',
+  'threat-modeling': 'Threat Modeling',
+  'architecture-decision': 'Architecture Decision',
+  'boss-battle': 'Boss Battle',
+};
+
+export function missionTypeLabel(type) {
+  return MISSION_TYPE_LABELS[type] ?? type;
+}
+
 export const RUNNERS = ['worker', 'iframe', 'none'];
 
 /**

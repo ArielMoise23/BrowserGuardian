@@ -227,6 +227,42 @@ export const INTERVIEW_QUESTIONS = [
     prompt: 'What does a `SameSite=Lax` (vs `Strict` vs `None`) cookie attribute actually control, and how does it relate to CSRF?',
     modelAnswer: 'SameSite controls whether the browser attaches the cookie on cross-site requests. `Strict` never sends it cross-site (even top-level navigation from an external link); `Lax` sends it on top-level cross-site navigations (like following a link) but not on cross-site subresource/fetch requests (like an auto-submitting form or fetch triggered by another site) — this default in modern browsers blocks the classic CSRF pattern of a malicious page silently firing an authenticated request. `None` (which requires `Secure`) sends the cookie on all cross-site requests, opting back out of that protection when it\'s genuinely needed (e.g. legitimate cross-site embeds).',
   },
+  {
+    id: 'q-debug-unfamiliar-script',
+    skillTag: 'debugging',
+    prompt: 'You\'re handed a minified, unfamiliar third-party script suspected of skimming form data, with no source map. Walk through your systematic approach.',
+    modelAnswer: 'Start from the sinks, not the source: use DevTools\' DOM breakpoints ("break on attribute modification") on the sensitive fields, and XHR/fetch breakpoints, to catch the script in the act rather than reading minified code top-to-bottom. Prefer logpoints over regular breakpoints when the goal is observing behavior without disrupting timing — a paused debugger can itself change (or hide) timing-dependent attack behavior. Search the source for exfiltration-shaped patterns (`fetch`/`XMLHttpRequest`/`sendBeacon`/`new Image()` calls, `encodeURIComponent`/base64 chains near a network call). Diff the page\'s observable behavior (network requests, DOM state) with and without the script loaded to isolate exactly what it changes, rather than trying to fully understand every line.',
+  },
+  {
+    id: 'q-debug-intermittent',
+    skillTag: 'debugging',
+    prompt: 'A bug reproduces intermittently in production and never locally. What\'s your systematic approach before touching any code?',
+    modelAnswer: 'Treat it as a timing/race problem first: reproduce under realistic conditions (throttled network, realistic latency) rather than instant local responses, since races are often invisible when everything resolves too fast to interleave badly. Add logpoints instead of breakpoints — pausing execution changes timing and can mask a race entirely (a classic "Heisenbug"). Look for shared mutable state read/written by more than one async callback, and check whether the failure correlates with a specific browser, extension, or network condition in the field data before forming a code-level hypothesis.',
+  },
+  {
+    id: 'q-live-vs-static-collections',
+    skillTag: 'dom',
+    prompt: '`getElementsByClassName` returns a live collection; `querySelectorAll` returns a static one. What does that actually mean, and where does it cause bugs?',
+    modelAnswer: 'A live `HTMLCollection` (from `getElementsByClassName`/`getElementsByTagName`, or `.childNodes`) automatically reflects DOM changes made after it was obtained — its `.length` and contents update in real time. That becomes a bug when you iterate it with a forward `for` loop while removing matching elements: removing index 0 shifts everything down, so the loop skips what is now index 0, silently processing only every other element. `querySelectorAll` returns a static `NodeList` — a snapshot taken at call time that later DOM changes don\'t affect — which is why it\'s usually the safer default for iterate-and-mutate code.',
+  },
+  {
+    id: 'q-gc-reachability',
+    skillTag: 'runtime',
+    prompt: 'How does a JavaScript engine actually decide an object is eligible for garbage collection — is it reference counting?',
+    modelAnswer: 'No — modern engines use mark-and-sweep based on REACHABILITY from a set of roots (the global object, the current call stack, and closures still referenced from either). An object becomes collectible once no chain of references from any root reaches it, regardless of how many OTHER unreachable objects still point to it. This is precisely why simple reference counting isn\'t used: it can\'t handle two objects that reference each other but are both unreachable from any root — mark-and-sweep handles that circular case correctly because it starts from the roots outward instead of counting incoming references.',
+  },
+  {
+    id: 'q-trust-boundary',
+    skillTag: 'threatModeling',
+    prompt: 'In one or two sentences, what is a trust boundary, and where are the trust boundaries on a typical checkout page?',
+    modelAnswer: 'A trust boundary is any point where data or control passes from one level of trust to another, and therefore needs to be validated or isolated rather than assumed safe. On a checkout page: first-party code and co-located third-party scripts (same realm, different trust — the mechanical access is identical, the trust is not), the page and a payment provider\'s iframe (a real, browser-enforced boundary), the client and the server (a network boundary — nothing client-side is trustworthy to the server without re-validation), and the page and raw user input (untrusted until validated, regardless of which script reads it first).',
+  },
+  {
+    id: 'q-mutation-observer-timing',
+    skillTag: 'browserApis',
+    prompt: 'MutationObserver replaced the older (deprecated) Mutation Events. What was wrong with the old approach, and what changed about WHEN callbacks run?',
+    modelAnswer: 'Mutation Events fired synchronously, as part of the mutation itself — a single DOM change could trigger a handler that made another DOM change, triggering another event, synchronously, all on the same stack. That caused severe performance problems and reentrancy bugs on any non-trivial page. MutationObserver batches mutations and delivers them asynchronously, as a microtask, after the current synchronous work finishes — the callback sees an array of accumulated MutationRecords instead of firing once per individual change, which avoids the reentrancy hazard while still guaranteeing delivery before the next macrotask or paint.',
+  },
 ];
 
 export function pickQuestions(skills, count = 6) {

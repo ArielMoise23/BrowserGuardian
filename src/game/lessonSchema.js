@@ -2,6 +2,17 @@ import { RUNNERS, SUBMISSION_MODES } from './missionSchema.js';
 
 export const LAB_TYPES = ['predict', 'modify', 'implement', 'break', 'defend'];
 
+// Display labels for LAB_TYPES — the single source of truth so a lab's type badge
+// renders the same wherever it appears (inside a lesson, or in the Review screen's
+// mistake history), instead of leaking the raw internal string to the learner.
+export const LAB_TYPE_LABELS = {
+  predict: 'Predict', modify: 'Modify', implement: 'Implement', break: 'Break it', defend: 'Defend it',
+};
+
+export function labTypeLabel(type) {
+  return LAB_TYPE_LABELS[type] ?? type;
+}
+
 export const MENTAL_MODEL_LABELS = [
   'ECMAScript spec',
   'Browser-provided',

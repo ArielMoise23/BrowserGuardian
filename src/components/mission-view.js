@@ -10,6 +10,7 @@ import { buildResult } from '../game/scoring.js';
 import { revealNext } from '../game/hints.js';
 import { store } from '../state/store.js';
 import { lessonRegistry } from '../game/lessonRegistry.js';
+import { missionTypeLabel } from '../game/missionSchema.js';
 
 export function renderMissionView(mission, registry) {
   const local = { revealedHints: 0, answers: {} };
@@ -125,7 +126,7 @@ export function renderMissionView(mission, registry) {
       el('div', {}, [
         el('h1', {}, mission.title),
         el('div', { class: 'mission-header__meta' }, [
-          el('span', { class: 'badge badge--accent' }, mission.type),
+          el('span', { class: 'badge badge--accent' }, missionTypeLabel(mission.type)),
           el('span', { class: 'badge' }, mission.difficulty),
           el('span', { class: 'badge' }, `${mission.xp} XP`),
           el('span', { class: 'badge' }, `~${mission.estimatedMinutes} min`),

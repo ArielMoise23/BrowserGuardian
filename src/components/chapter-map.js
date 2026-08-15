@@ -1,5 +1,6 @@
 import { el } from '../utils/dom.js';
 import { CHAPTERS } from '../game/chapters.js';
+import { missionTypeLabel } from '../game/missionSchema.js';
 import { xpProgress, computeStreaks } from '../state/progress.js';
 
 export function renderChapterMap(state, registry) {
@@ -24,8 +25,8 @@ export function renderChapterMap(state, registry) {
 
   return el('div', { class: 'chapter-map' }, [
     el('div', { class: 'chapter-map__header' }, [
-      el('h1', {}, 'Mission Map'),
-      el('p', {}, 'Browser Guardian: Runtime Defense Lab — work through each chapter\'s missions to build the runtime and browser-security depth a JavaScript Security Engineer role expects.'),
+      el('h1', {}, 'Challenge Mode'),
+      el('p', {}, 'The mission map. Work through each chapter\'s missions — real sandboxed execution, graded on behavior — to build the runtime and browser-security depth a JavaScript Security Engineer role expects. New to a topic? Guided Learning covers it first.'),
       stats,
     ]),
     grid,
@@ -50,7 +51,7 @@ function renderChapterCard(chapter, registry, state) {
           return el('a', { class: `mission-row${record?.completed ? ' mission-row--complete' : ''}`, href: `#/mission/${mission.id}` }, [
             el('span', { class: 'mission-row__icon' }, icon),
             el('span', { class: 'mission-row__title' }, mission.title),
-            el('span', { class: 'badge' }, mission.type),
+            el('span', { class: 'badge' }, missionTypeLabel(mission.type)),
           ]);
         })
       )

@@ -1,6 +1,7 @@
 import { el } from '../utils/dom.js';
 import { store } from '../state/store.js';
 import { lessonRegistry } from '../game/lessonRegistry.js';
+import { labTypeLabel } from '../game/lessonSchema.js';
 import { weakestConcepts, mistakeHistory } from '../state/review.js';
 
 export function renderReviewScreen() {
@@ -31,7 +32,7 @@ export function renderReviewScreen() {
             el('tbody', {}, history.map((m) => el('tr', {}, [
               el('td', {}, m.lessonTitle),
               el('td', {}, m.labTitle),
-              el('td', {}, m.mistakeType),
+              el('td', {}, labTypeLabel(m.mistakeType)),
               el('td', {}, String(m.failedAttempts)),
               el('td', {}, m.resolved ? 'Resolved' : 'Unresolved'),
               el('td', {}, new Date(m.date).toLocaleDateString()),

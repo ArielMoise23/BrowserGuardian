@@ -74,8 +74,8 @@ function renderSummary(session) {
 
   return el('div', {}, [
     el('h2', {}, 'Session Summary'),
-    el('div', { class: 'debrief__section' }, [el('h3', {}, 'Strong areas'), el('p', {}, strong.map((t) => `${t} (${state.skills[t]})`).join(', ') || '—')]),
-    el('div', { class: 'debrief__section' }, [el('h3', {}, 'Weak areas'), el('p', {}, weak.map((t) => `${t} (${state.skills[t]})`).join(', ') || '—')]),
+    el('div', { class: 'debrief__section' }, [el('h3', {}, 'Strong areas'), el('p', {}, strong.map((t) => `${categoryLabel(t)} (${state.skills[t]})`).join(', ') || '—')]),
+    el('div', { class: 'debrief__section' }, [el('h3', {}, 'Weak areas'), el('p', {}, weak.map((t) => `${categoryLabel(t)} (${state.skills[t]})`).join(', ') || '—')]),
     missed.length
       ? el('div', { class: 'debrief__section' }, [
           el('h3', {}, 'Questions to revisit'),

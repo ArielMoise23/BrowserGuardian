@@ -28,7 +28,11 @@
       "Bash(node check13.js)",
       "Bash(node check14.js)",
       "Bash(node final-check.js)",
-      "Bash(node debug5.js)"
+      "Bash(node debug5.js)",
+      "Bash(grep -v \"skill-radar.js$\")",
+      "Bash(lsof -i :8080 -sTCP:LISTEN)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/)",
+      "Bash(node verify.js)"
     ]
   }
 }
