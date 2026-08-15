@@ -1,0 +1,208 @@
+const MEASURE_SKELETON = `function expensiveWork() {
+  var sum = 0;
+  for (var i = 0; i < 5000000; i++) sum += i;
+  return sum;
+}
+
+// Measure how long expensiveWork() actually takes using performance.now(), and log
+// exactly: "expensiveWork took " + ms + "ms"
+`;
+const MEASURE_TEST = `(function () {
+  var line = __consoleHistory.map(function (e) { return e.text; }).find(function (t) { return /^expensiveWork took [\\d.]+ms$/.test(t); });
+  __report({ found: !!line, line: line });
+})();
+`;
+
+const LEAK_SITE = `<div class="card"><button id="btn">Action</button></div>`;
+const LEAK_BUGGY = `function attachHandler(el) {
+  el.addEventListener('click', function () {
+    console.log('handler fired');
+  });
+}
+`;
+const LEAK_TEST = `(function () {
+  var btn = document.getElementById('btn');
+  attachHandler(btn);
+  attachHandler(btn);
+  attachHandler(btn);
+  btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+  var fires = __consoleHistory.filter(function (e) { return e.text === 'handler fired'; }).length;
+  __report({ fires: fires });
+})();
+`;
+
+const SAFE_SITE = `<div class="card">Checkout</div>`;
+const SAFE_SETUP = `window.submitOrder = function (orderData) {
+  console.log('Order submitted:', orderData.id);
+  return true;
+};
+`;
+const SAFE_BUGGY = `var originalSubmitOrder = window.submitOrder;
+window.submitOrder = function (orderData) {
+  var parsed = JSON.parse(orderData.metadata);
+  console.log('Order metadata:', parsed);
+  return originalSubmitOrder(orderData);
+};
+`;
+const SAFE_TEST = `(function () {
+  var results = {};
+  try {
+    var r = window.submitOrder({ id: 'ORDER-1', metadata: 'not-valid-json{{{' });
+    results.orderSubmitted = r === true;
+  } catch (e) {
+    results.orderSubmitted = false;
+    results.threw = true;
+  }
+  __report(results);
+})();
+`;
+
+const EXAMPLE_CODE = `var start = performance.now();
+
+var sum = 0;
+for (var i = 0; i < 2000000; i++) sum += i;
+
+var elapsed = performance.now() - start;
+console.log("Loop took " + elapsed.toFixed(2) + "ms, sum =", sum);
+`;
+
+export default {
+  id: 'instrumentation-performance',
+  moduleId: 'performance-and-reliability',
+  title: 'Measuring and Reducing Instrumentation Overhead',
+  estimatedMinutes: 30,
+  difficulty: 'advanced',
+  prerequisites: ['wrapping-fetch-safely'],
+  relatedMissionIds: ['security-at-200ms'],
+  skillTags: ['performance', 'productionReliability'],
+
+  whyItMatters: {
+    development: 'Any code that runs on every event, every mutation, or every network call has to be cheap — "correct but slow" is not actually correct in a hot path, it\'s a different bug.',
+    security: 'A security control that visibly degrades the site it protects gets rolled back, regardless of how good its detection is — performance is a hard requirement for a runtime control to survive contact with production, not a nice-to-have.',
+    sourceDefense: 'You will be expected to measure overhead precisely (not guess), reduce it without silently losing detection, and make sure your own instrumentation can never be the thing that breaks the page — this lesson is exactly those three skills.',
+  },
+
+  mentalModel: {
+    explanation: '`performance.now()` returns a high-resolution timestamp (milliseconds, sub-millisecond precision) that only ever moves forward, unaffected by system clock adjustments — the correct tool for measuring elapsed time, as opposed to `Date.now()`, which is lower-resolution and can jump if the system clock changes. Measuring overhead means timestamping immediately before and after the code in question and taking the difference — deceptively simple, but only meaningful if you\'re measuring the actual hot path under realistic conditions, not a synthetic best case. Reliability, separately, means your instrumentation must never become a new source of site breakage: any exception thrown inside a monitor has to be caught locally and must never prevent the real underlying functionality from still running.',
+    distinctions: [
+      { label: 'Browser-provided', text: 'The Performance API (`performance.now()`, marks, measures) is a browser-provided Web API, not part of ECMAScript — a plain JS engine embedded outside a browser/Node context has no inherent concept of wall-clock timing at all.' },
+      { label: 'Simplified model', text: '"Just wrap it in try/catch" is necessary but not sufficient for reliability — the catch block itself must not swallow the ORIGINAL function\'s own legitimate errors; only the instrumentation\'s own risky work should be shielded, and the real underlying call still needs to happen (or its own errors still need to propagate normally) either way.' },
+      { label: 'Implementation detail', text: 'The precision `performance.now()` actually reports can be intentionally reduced by some browsers (timing-attack mitigation, e.g. against Spectre-class attacks) — treat measured values as accurate to the browser\'s stated resolution, not as infinitely precise.' },
+    ],
+  },
+
+  example: {
+    runner: 'worker',
+    code: EXAMPLE_CODE,
+    predictPrompt: 'Predict roughly what the logged elapsed time will be — not an exact number, but is it closer to 0ms, a few ms, or hundreds of ms?',
+  },
+  panels: ['trace'],
+
+  labs: [
+    {
+      id: 'measure-overhead',
+      title: 'Implement: measure real overhead',
+      type: 'implement',
+      instructions: 'Time expensiveWork() using performance.now() and log the result in the exact format requested.',
+      runner: 'worker',
+      submissionMode: 'code',
+      initialCode: MEASURE_SKELETON,
+      testScript: MEASURE_TEST,
+      validate(runResult) {
+        if (runResult.error) return { passed: false, score: { correctness: 0 }, feedback: [`Error: ${runResult.error}`] };
+        const r = runResult.returnValue ?? {};
+        return { passed: !!r.found, score: { correctness: r.found ? 1 : 0 }, feedback: [r.found ? `Logged: "${r.line}"` : 'No matching log line found — check the exact format requested.'] };
+      },
+      hints: [
+        '`performance.now()` called before and after the work gives you two timestamps; subtract them for the elapsed milliseconds.',
+        'Template: `var start = performance.now(); expensiveWork(); var ms = performance.now() - start; console.log("expensiveWork took " + ms + "ms");`',
+      ],
+      solution: `function expensiveWork() {
+  var sum = 0;
+  for (var i = 0; i < 5000000; i++) sum += i;
+  return sum;
+}
+
+var start = performance.now();
+expensiveWork();
+var ms = performance.now() - start;
+console.log("expensiveWork took " + ms + "ms");`,
+      explanation: 'This is the entire foundation of measurement-driven optimization: you cannot responsibly claim something got "faster" (or decide it needs to) without a real before/after number from the actual code path, taken with a tool built for the job.',
+    },
+    {
+      id: 'fix-listener-leak',
+      title: 'Modify: fix an accumulating listener leak',
+      type: 'modify',
+      instructions: 'attachHandler gets called multiple times on the same element (e.g. on every re-render). Right now each call adds ANOTHER listener instead of replacing the old one — fix it so only one handler ever fires.',
+      runner: 'iframe',
+      submissionMode: 'code',
+      siteSnapshot: LEAK_SITE,
+      initialCode: LEAK_BUGGY,
+      testScript: LEAK_TEST,
+      validate(runResult) {
+        if (runResult.error) return { passed: false, score: { correctness: 0 }, feedback: [`Error: ${runResult.error}`] };
+        const fires = runResult.returnValue?.fires;
+        const passed = fires === 1;
+        return { passed, score: { correctness: passed ? 1 : 0, performance: passed ? 1 : 0 }, feedback: [`Handler fired ${fires} time(s) after 3 calls to attachHandler (expected 1).`] };
+      },
+      hints: [
+        'Each call to `attachHandler` creates a brand NEW anonymous function and adds it — `addEventListener` has no way to know it\'s "the same" handler as last time, so nothing gets replaced, only added to.',
+        'Store the listener function reference on the element itself (e.g. `el.__clickHandler`), and call `removeEventListener` with that stored reference before adding a new one.',
+      ],
+      solution: `function attachHandler(el) {
+  if (el.__clickHandler) {
+    el.removeEventListener('click', el.__clickHandler);
+  }
+  el.__clickHandler = function () {
+    console.log('handler fired');
+  };
+  el.addEventListener('click', el.__clickHandler);
+}`,
+      explanation: 'Every accumulated stale listener is both a correctness bug (the same event now triggers duplicate work) and a memory leak (each listener closure, and anything IT references, stays alive as long as the element does) — exactly the kind of gradual degradation that turns into "the page feels slower after being open a while."',
+    },
+    {
+      id: 'fail-safely',
+      title: 'Defend: a monitor exception must not break checkout',
+      type: 'defend',
+      instructions: 'The monitor below tries to parse order metadata as JSON — and throws on malformed input, which currently prevents the REAL submitOrder from ever running. Fix it so a parsing failure inside the monitor never blocks the actual checkout.',
+      runner: 'iframe',
+      submissionMode: 'code',
+      siteSnapshot: SAFE_SITE,
+      setupScript: SAFE_SETUP,
+      initialCode: SAFE_BUGGY,
+      testScript: SAFE_TEST,
+      validate(runResult) {
+        if (runResult.error) return { passed: false, score: { correctness: 0, compatibility: 0 }, feedback: [`Error: ${runResult.error}`] };
+        const r = runResult.returnValue ?? {};
+        const passed = !!r.orderSubmitted;
+        return { passed, score: { compatibility: passed ? 1 : 0 }, feedback: [passed ? 'Checkout still completed despite the malformed metadata.' : 'Checkout failed — the monitor\'s own exception broke real functionality.'] };
+      },
+      hints: [
+        'The `JSON.parse` call throws on malformed input, and nothing catches it — the exception propagates out of the wrapper entirely, and `originalSubmitOrder(orderData)` (on the next line) never even executes.',
+        'Wrap ONLY the risky monitoring work in try/catch — the call to `originalSubmitOrder` must still happen either way, whether or not the monitoring succeeded.',
+      ],
+      solution: `var originalSubmitOrder = window.submitOrder;
+window.submitOrder = function (orderData) {
+  try {
+    var parsed = JSON.parse(orderData.metadata);
+    console.log('Order metadata:', parsed);
+  } catch (e) {
+    console.log('Monitor failed to parse metadata, continuing anyway:', e.message);
+  }
+  return originalSubmitOrder(orderData);
+};`,
+      explanation: 'The fix isn\'t "never let anything throw" — it\'s that the REAL underlying functionality must be unconditionally preserved regardless of what happens in the monitoring code wrapped around it. A security/observability layer that can take down checkout because of its OWN bug is a worse outcome than not having that layer at all.',
+    },
+  ],
+
+  knowledgeCheck: [
+    { id: 'kc-why-performance-now', question: 'Why is performance.now() the right tool for measuring elapsed time instead of Date.now() or new Date()?', modelAnswer: 'performance.now() is high-resolution and monotonic — it only ever increases and is unaffected by system clock changes (NTP adjustments, manual clock changes, DST), which can make Date.now()-based measurements wrong or even negative across a clock adjustment. It exists specifically for measuring elapsed durations, not wall-clock time.', skillTag: 'performance' },
+    { id: 'kc-fail-safe', question: 'What specifically distinguishes "failing safely" from just wrapping everything in a blanket try/catch?', modelAnswer: 'Failing safely means the underlying REAL functionality is preserved no matter what happens in the instrumentation/monitoring code — the try/catch has to be scoped around the monitoring\'s own risky work specifically, while the call to the real original function still happens unconditionally (or its own legitimate errors still propagate normally). A blanket try/catch around everything, including the real function call, risks silently swallowing genuine application errors too, which is a different and also-bad outcome.', skillTag: 'productionReliability' },
+  ],
+
+  interviewQuestions: [
+    'How would you measure the actual overhead a new security control adds to a real page, and what tool would you use?',
+    'A monitoring wrapper throws when it encounters unexpected input. What\'s the correct way to handle that, and what\'s the wrong way?',
+    'Explain how repeatedly attaching listeners without removing old ones causes both a correctness bug and a memory leak.',
+  ],
+};

@@ -165,5 +165,36 @@
 .toast--danger { border-left-color: var(--color-danger); }
 .toast--achievement { border-left-color: var(--color-warning); }
 
+/* Guided Learning sidebar */
+.learn-sidebar { display: flex; flex-direction: column; gap: var(--space-4); position: sticky; top: calc(var(--header-height) + var(--space-3)); min-width: 0; }
+.learn-sidebar .btn { white-space: normal; text-align: left; width: 100%; }
+.learn-sidebar__search { width: 100%; }
+.learn-sidebar__module { border-top: 1px solid var(--color-border); padding-top: var(--space-2); }
+.learn-sidebar__module-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; font-weight: 700; margin-bottom: var(--space-1); }
+.learn-sidebar__lesson-list { display: flex; flex-direction: column; gap: 2px; }
+.learn-sidebar__lesson-link { display: flex; align-items: center; gap: var(--space-1); font-size: 0.78rem; padding: 3px var(--space-1); color: var(--color-text-dim); text-decoration: none; border-radius: var(--radius-sm); }
+.learn-sidebar__lesson-link:hover { background: var(--color-bg-inset); color: var(--color-text); text-decoration: none; }
+.learn-sidebar__lesson-link.is-active { background: var(--color-accent-bg); color: var(--color-accent-strong); }
+.learn-sidebar__progress-track { height: 4px; border-radius: 999px; background: var(--color-bg-inset); overflow: hidden; margin-bottom: var(--space-2); }
+.learn-sidebar__progress-fill { height: 100%; background: var(--color-success); }
+
+/* Mental model distinctions (Guided Learning) */
+.distinction-list { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+.distinction { display: flex; align-items: baseline; gap: var(--space-2); font-size: 0.85rem; }
+.compare-note { color: var(--color-text-dim); font-size: 0.82rem; font-style: italic; }
+.prereq-line { color: var(--color-text-dim); font-size: 0.8rem; margin-top: var(--space-2); }
+
+/* Lab cards (Guided Learning) */
+.lab-card { display: flex; flex-direction: column; gap: var(--space-3); }
+.lab-card__head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+
+/* Recommended-prep banner (mission view) */
+.prep-banner {
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.85rem;
+  border-left: 3px solid var(--color-accent);
+}
+.prep-banner__note { color: var(--color-text-dim); }
+
 /* Empty / locked state */
 .empty-state { color: var(--color-text-faint); font-style: italic; font-size: 0.85rem; padding: var(--space-3); text-align: center; }

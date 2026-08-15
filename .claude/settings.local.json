@@ -13,7 +13,22 @@
       "Bash(node --test tests)",
       "Bash(node --test)",
       "Bash(npm test *)",
-      "Bash(node check4.js)"
+      "Bash(node check4.js)",
+      "Bash(node check5.js)",
+      "Bash(node -e ' *)",
+      "Bash(node check6.js)",
+      "Bash(node check7.js)",
+      "Bash(node check8.js)",
+      "Bash(node check9.js)",
+      "Bash(node check10.js)",
+      "Bash(node check11.js)",
+      "Bash(node check12.js)",
+      "Bash(node debug3.js)",
+      "Bash(node debug4.js)",
+      "Bash(node check13.js)",
+      "Bash(node check14.js)",
+      "Bash(node final-check.js)",
+      "Bash(node debug5.js)"
     ]
   }
 }

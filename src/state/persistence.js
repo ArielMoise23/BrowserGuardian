@@ -29,6 +29,13 @@ export function defaultState() {
     skills: Object.fromEntries(SKILL_CATEGORIES.map((c) => [c, 50])),
     interview: { history: [], sessions: [] },
     settings: { reducedMotion: 'system' },
+    // Guided Learning Mode state — additive only. Old saves are missing these keys
+    // entirely; loadState()'s existing defaultState-merge backfills them below, so no
+    // SCHEMA_VERSION bump (and no risk of wiping existing mission/XP progress) is needed.
+    lessons: {}, // { [lessonId]: { completedLabs: [], labAttempts: {}, knowledgeCheck: {}, exampleRun: false, completed: false, lastVisitedAt: null } }
+    bookmarks: [], // lessonId[]
+    notes: {}, // { [lessonId]: string }
+    mistakes: [], // { id, lessonId, labId, mistakeType, date, failedAttempts, resolved, resolvedDate }
   };
 }
 
