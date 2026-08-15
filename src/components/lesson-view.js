@@ -56,18 +56,15 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
     ]),
   ]);
 
-  const whyItMatters = el('div', { class: 'card' }, [
-    el('h2', {}, '1. Why this matters'),
-    el('dl', {}, [
-      el('dt', {}, 'In JavaScript development'), el('dd', {}, lesson.whyItMatters.development),
-      el('dt', {}, 'In browser runtime security'), el('dd', {}, lesson.whyItMatters.security),
-      el('dt', {}, 'At Source Defense'), el('dd', {}, lesson.whyItMatters.sourceDefense),
-    ]),
+  const coreIdea = el('div', { class: 'card' }, [
+    el('h2', {}, '1. Core idea'),
+    el('p', {}, lesson.mentalModel.coreIdea),
   ]);
 
-  const mentalModel = el('div', { class: 'card' }, [
-    el('h2', {}, '2. Mental model'),
+  const mechanism = el('div', { class: 'card' }, [
+    el('h2', {}, '2. What actually happens'),
     el('p', {}, lesson.mentalModel.explanation),
+    el('pre', { class: 'code-source' }, lesson.mentalModel.snippet),
     el('div', { class: 'distinction-list' }, lesson.mentalModel.distinctions.map((d) =>
       el('div', { class: 'distinction' }, [
         el('span', { class: `badge badge--${distinctionTone(d.label)}` }, d.label),
@@ -78,8 +75,37 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
 
   const exampleSection = renderExampleSection(lesson);
 
+  const nuanceSection = el('div', { class: 'card' }, [
+    el('h2', {}, '5. Important nuance'),
+    el('p', {}, lesson.nuance),
+  ]);
+
+  const securityAngleSection = el('div', { class: 'card' }, [
+    el('h2', {}, '6. Security angle'),
+    el('p', {}, lesson.securityAngle),
+  ]);
+
+  const runtimeSecurityAngleSection = el('div', { class: 'card' }, [
+    el('h2', {}, '7. Runtime security angle'),
+    el('p', {}, lesson.runtimeSecurityAngle),
+  ]);
+
+  const keyTakeawaysSection = el('div', { class: 'card' }, [
+    el('h2', {}, '8. Key takeaways'),
+    el('ul', {}, lesson.keyTakeaways.map((k) => el('li', {}, k))),
+  ]);
+
+  const whyItMatters = el('div', { class: 'card' }, [
+    el('h3', {}, 'Why this matters'),
+    el('dl', {}, [
+      el('dt', {}, 'In JavaScript development'), el('dd', {}, lesson.whyItMatters.development),
+      el('dt', {}, 'In browser runtime security'), el('dd', {}, lesson.whyItMatters.security),
+      el('dt', {}, 'At Source Defense'), el('dd', {}, lesson.whyItMatters.sourceDefense),
+    ]),
+  ]);
+
   const labsSection = el('div', { class: 'card' }, [
-    el('h2', {}, '5. Micro-labs'),
+    el('h2', {}, '9. Micro-labs'),
     el('p', {}, 'Each lab is graded on what your code actually does, not on matching a fixed answer string — multiple valid solutions are accepted. Submitting reveals a full explanation, so treat each attempt as part of the lesson, not just a pass/fail check.'),
     ...lesson.labs.map((lab) => {
       const { element } = renderLabRunner(lab, {
@@ -106,9 +132,14 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
 
   const view = el('div', { class: 'mission-view' }, [
     header,
-    whyItMatters,
-    mentalModel,
+    coreIdea,
+    mechanism,
     exampleSection,
+    nuanceSection,
+    securityAngleSection,
+    runtimeSecurityAngleSection,
+    keyTakeawaysSection,
+    whyItMatters,
     labsSection,
     knowledgeCheck,
     readinessSlot,
@@ -219,7 +250,7 @@ function renderKnowledgeCheck(lesson) {
     return el('div', { class: 'card' }, bodySlot);
   });
 
-  return el('div', {}, [el('h2', {}, '6. Knowledge check'), ...cards]);
+  return el('div', {}, [el('h2', {}, '10. Knowledge check'), ...cards]);
 }
 
 function buildReadinessSection(lesson) {
@@ -233,7 +264,7 @@ function buildReadinessSection(lesson) {
   const section = (title, content) => el('div', { class: 'debrief__section' }, [el('h3', {}, title), content]);
 
   return el('div', { class: 'card' }, [
-    el('h2', {}, '7. Mission readiness'),
+    el('h2', {}, '11. Mission readiness'),
     section('Mastered', mastered.length ? el('ul', {}, mastered.map((l) => el('li', {}, l.title))) : el('p', {}, 'Nothing yet — work through the labs above.')),
     needsReview.length ? section('Needs review', el('ul', {}, needsReview.map((l) => el('li', {}, l.title)))) : null,
     notStarted.length ? section('Still to try', el('ul', {}, notStarted.map((l) => el('li', {}, l.title)))) : null,

@@ -67,13 +67,37 @@ export default {
   },
 
   mentalModel: {
+    coreIdea: 'Every DOM XSS bug has the same two-part shape: untrusted data gets IN somewhere (a source), and it reaches an API that treats a string as code or markup instead of plain text (a sink). Exfiltration is the same shape running in reverse — data an attacker already has needs an outbound channel, and the browser offers several independent ones. Neither half is exotic; it\'s ordinary browser APIs doing exactly what they\'re documented to do, applied to data that should never have reached them.',
     explanation: 'A "sink" is any API that takes a string (or other value) and does something dangerous with it — `innerHTML`/`outerHTML`/`insertAdjacentHTML` parse it as HTML (and execute any script-equivalent content, like an `onerror` handler on an `<img>`); `document.write` does similarly; `eval`/`new Function`/string-argument `setTimeout` execute it as JavaScript. A "source" is anywhere untrusted data enters — URL parameters, `location.hash`, form input, a third-party API response. DOM-based XSS is simply untrusted data flowing from a source to a sink with no safe transformation in between. Exfiltration is the mirror image: once an attacker\'s code has data, it needs an OUTBOUND channel to get it out — and there are several independent ones (fetch, XHR, sendBeacon, image-beacon), which matters enormously for detection, because monitoring only one is not the same as monitoring exfiltration.',
     distinctions: [
       { label: 'Browser-provided', text: '`innerHTML`\'s HTML-parsing behavior and `fetch`/`sendBeacon`/`Image`\'s network behavior are all Web APIs/HTML-parsing rules defined by browser specifications, not ECMAScript — the language itself has no concept of "HTML" or "network request" at all.' },
       { label: 'Simplified model', text: '"XSS" is often talked about as one bug, but sinks differ meaningfully in risk: `textContent` is never a sink (it never parses HTML at all); `innerHTML` is dangerous with attacker-controlled strings; `eval`/`Function` are dangerous with ANY untrusted string, HTML or not.' },
       { label: 'Implementation detail', text: 'Exactly how aggressively a browser\'s HTML parser normalizes malformed markup (which can enable "mutation XSS," where sanitized-looking HTML becomes dangerous after a round-trip through the parser) varies subtly by engine — the safe rule of thumb (never feed untrusted strings to HTML-parsing sinks) holds regardless of these details.' },
     ],
+    snippet: `// source: attacker-controlled data enters via a URL parameter
+var q = new URLSearchParams(location.search).get('q'); // e.g. "<img src=x onerror=alert(1)>"
+
+// sink: innerHTML parses that string as real HTML — this is the entire bug
+resultsDiv.innerHTML = "You searched for: " + q;
+
+// the fix is not "sanitize harder" as a first instinct — it's picking a sink
+// that never parses markup at all:
+resultsDiv.textContent = "You searched for: " + q; // now inert, unconditionally`,
   },
+
+  nuance: 'The mutation-XSS (mXSS) class named above is worth understanding concretely, not just by name: a sanitizer inspects a string, decides it\'s safe, and returns cleaned HTML — but that cleaned string then gets assigned to `innerHTML`, which hands it to the browser\'s HTML parser a SECOND time (once during the sanitizer\'s own internal parsing, once for real when actually inserted). Browsers sometimes normalize malformed-but-technically-parseable markup differently on that second pass than the sanitizer assumed on the first — a sequence that looked inert after step one can parse into something executable by step two. This is why sanitization has to happen using the SAME parser and context the value will actually be rendered into, never a generic string-cleaning pass — and why `textContent`, which never parses its input on any pass, sidesteps this entire bug class rather than needing the sanitization to be exactly right.',
+
+  securityAngle: 'A realistic skimmer rarely exfiltrates on every keystroke — a request per keypress is a distinctive, easy-to-spot shape in a network log. A more evasive version reads form field values continuously (the source: an `input` listener on the payment fields) but buffers them in memory, sending a single beacon only on `submit` or on `visibilitychange`/`pagehide` — batching everything typed into one exfiltration call that looks, in a network log, like an ordinary analytics ping fired at a page-lifecycle boundary legitimate analytics scripts use constantly for the same reason. The interesting part for detection: the SOURCE (reading input values) is continuous and would show up in DOM/property-access monitoring, even though the SINK (the actual outbound request) is a single, late, innocuous-looking event. A monitor that only watches network traffic, and only flags high-frequency exfiltration patterns, misses this entirely — it has to correlate sustained source activity with the eventual send, not judge the send in isolation.',
+
+  runtimeSecurityAngle: 'The "coverage of one API is not coverage of a capability" lesson from the bypass-naive-monitor lab applies just as much to the SINK side as to exfiltration. Instrumenting `innerHTML` alone (via a property-descriptor override, for instance) misses `outerHTML`, `insertAdjacentHTML`, `document.write`, and setting `srcdoc` on an iframe — separate APIs that all reach the same HTML parser through different entry points. A monitor built to catch DOM XSS by hooking sinks needs to deliberately enumerate the actual set of HTML-parsing and code-execution entry points, the same way exfiltration coverage needs to enumerate network-capable APIs. In both cases the browser exposes multiple independent paths to the same underlying capability, and defensive instrumentation is only as complete as its list of covered entry points — never complete by default.',
+
+  keyTakeaways: [
+    'DOM XSS is untrusted data (a source) reaching an API that parses it as HTML or executes it as code (a sink), with no safe transformation in between.',
+    'textContent is never a sink — it treats its input as literal text unconditionally; innerHTML/document.write parse as HTML, eval/Function execute as JavaScript.',
+    'Sanitizing a string and still assigning it to an HTML-parsing sink can remain exploitable (mutation XSS) if the sanitizer\'s parse pass and the real render pass normalize malformed markup differently.',
+    'There are multiple independent outbound channels (fetch, XHR, sendBeacon, Image-src beacons) and multiple independent HTML-parsing sinks — covering one of either is not the same as covering the capability.',
+    'A realistic skimmer batches reads and exfiltrates once, late, at a page-lifecycle event — detection has to correlate sustained source activity with the eventual sink, not judge the sink alone.',
+  ],
 
   example: {
     runner: 'iframe',

@@ -72,8 +72,14 @@ export function validateLesson(lesson) {
   }
 
   const mm = lesson?.mentalModel;
+  if (!mm || typeof mm.coreIdea !== 'string' || mm.coreIdea.trim() === '') {
+    errors.push(`lesson "${label}" needs mentalModel.coreIdea (a short, intuitive lead-in before the technical mechanism)`);
+  }
   if (!mm || typeof mm.explanation !== 'string' || mm.explanation.trim() === '') {
     errors.push(`lesson "${label}" needs mentalModel.explanation`);
+  }
+  if (!mm || typeof mm.snippet !== 'string' || mm.snippet.trim() === '') {
+    errors.push(`lesson "${label}" needs mentalModel.snippet (a minimal illustrative code example, shown inline with the explanation)`);
   }
   if (!mm || !Array.isArray(mm.distinctions) || mm.distinctions.length < 2) {
     errors.push(`lesson "${label}" needs at least 2 mentalModel.distinctions`);
@@ -86,6 +92,19 @@ export function validateLesson(lesson) {
         errors.push(`lesson "${label}" distinctions[${i}] is missing text`);
       }
     });
+  }
+
+  if (typeof lesson?.nuance !== 'string' || lesson.nuance.trim() === '') {
+    errors.push(`lesson "${label}" needs "nuance" (an important edge case, misconception, or interview-relevant detail)`);
+  }
+  if (typeof lesson?.securityAngle !== 'string' || lesson.securityAngle.trim() === '') {
+    errors.push(`lesson "${label}" needs "securityAngle" (a concrete security scenario tied to this concept)`);
+  }
+  if (typeof lesson?.runtimeSecurityAngle !== 'string' || lesson.runtimeSecurityAngle.trim() === '') {
+    errors.push(`lesson "${label}" needs "runtimeSecurityAngle" (how this concept applies to observing/restricting/instrumenting scripts at runtime)`);
+  }
+  if (!Array.isArray(lesson?.keyTakeaways) || lesson.keyTakeaways.length < 3 || lesson.keyTakeaways.length > 5) {
+    errors.push(`lesson "${label}" needs 3-5 keyTakeaways`);
   }
 
   const ex = lesson?.example;

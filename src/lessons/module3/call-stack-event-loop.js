@@ -82,6 +82,7 @@ export default {
   },
 
   mentalModel: {
+    coreIdea: 'JavaScript runs on a single call stack — one thing at a time, always. "Async" code doesn\'t mean the language becomes concurrent; it means the browser (or Node) does the actual waiting outside the language entirely, and hands work back to that same single call stack later, through queues. There are two queues that matter here — microtasks (Promise reactions, `queueMicrotask`) and macrotasks (`setTimeout`, DOM events, network callbacks) — and one rule governs their relative order: the ENTIRE microtask queue empties before the next macrotask ever gets a turn.',
     explanation: 'JavaScript itself (the ECMAScript language) executes on a single call stack, one function call at a time, synchronously. Nothing about "waiting" or "scheduling later" is part of the language\'s execution model — that\'s all provided by the HOST ENVIRONMENT (the browser, or Node.js). When you call `setTimeout`, `fetch`, or attach a DOM event listener, you\'re calling a Web API the browser provides, not a JavaScript language feature. When that Web API\'s work is ready (a timer elapses, a response arrives, a click happens), the HOST schedules a callback to run — in HTML-standard terms, this is a "task"; developers overwhelmingly call it a "macrotask" instead, specifically to contrast it with "microtask" — the two terms name the same queue. This lesson uses "macrotask" throughout for that reason, and calls out "task" only when quoting the spec directly. The event loop is a host-environment control loop that repeatedly: runs one macrotask, then drains the ENTIRE microtask queue (which includes Promise reactions), then — in a browser — may perform rendering, then picks the next macrotask. Microtasks always fully drain between macrotasks, which is why they consistently "win" over the next macrotask even when both look "ready" at the same moment.',
     distinctions: [
       { label: 'ECMAScript spec', text: 'The microtask mechanism actually IS partially defined at the language level: ECMAScript specifies Promise reaction callbacks as "Jobs" enqueued on a job queue. What ECMAScript does NOT define is setTimeout, the DOM, fetch, or an overall event loop driving when any of this runs — that\'s entirely up to the host.' },
@@ -89,6 +90,14 @@ export default {
       { label: 'Simplified model', text: 'Describing callbacks as "moving from a queue into the call stack" is a useful simplification. More precisely: the event loop selects a task and CALLS the associated function, which pushes a brand-new execution context onto what starts as an EMPTY call stack for that task — nothing is literally relocated between data structures.' },
       { label: 'Implementation detail', text: 'Exactly how many microtasks can run before a browser decides to squeeze in a rendering opportunity, and precise task-queue prioritization across different task sources (timers vs. input vs. network), are implementation details that can differ across browser engines even where the broad model (drain all microtasks between tasks) is shared.' },
     ],
+    snippet: `setTimeout(() => console.log("macrotask"), 0);
+Promise.resolve().then(() => {
+  console.log("microtask 1");
+  Promise.resolve().then(() => console.log("microtask 2, scheduled from inside microtask 1"));
+});
+// Output: "microtask 1", "microtask 2, scheduled from inside microtask 1", "macrotask"
+// microtask 2 is scheduled WHILE the queue is draining — and still runs before
+// the macrotask, because the drain doesn't stop until the queue is truly empty.`,
   },
 
   example: {
@@ -97,6 +106,20 @@ export default {
     predictPrompt: 'Predict the order of all five log lines — pay attention to which are synchronous, which are microtasks, and which is a macrotask.',
   },
   panels: ['trace'],
+
+  nuance: 'Because the microtask queue must fully drain before the next macrotask runs, code that keeps scheduling new microtasks from within microtasks can starve macrotasks — and browser rendering — indefinitely: `function loop() { Promise.resolve().then(loop); }` never lets a `setTimeout` callback, a click handler, or a repaint happen, because the microtask queue is never empty long enough for control to move past it. This is a different mechanism from a long synchronous loop, which blocks by occupying the call stack continuously — this blocks by never letting the queue-draining step finish, even though the call stack itself is briefly empty between each individual microtask. Both produce the same visible symptom, an unresponsive page, but interviewers sometimes ask for both mechanisms specifically, and "the call stack was blocked" is the wrong answer for the microtask-starvation case.',
+
+  securityAngle: 'A point-in-time scanner that loads a page, waits for the load event, and inspects DOM/network activity once is checking a single moment — and task scheduling gives malicious code an easy way to not be doing anything suspicious at that exact moment. Scheduling the actual skimming logic inside a `setTimeout` with a multi-second delay, or nesting it several macrotasks deep (`setTimeout(() => setTimeout(() => setTimeout(fn, 0), 0), 0)`), pushes the observable behavior well past the window a quick scan checks, while the script looks completely inert during that window. This is exactly why realistic runtime monitoring watches continuously for the life of the page rather than inspecting it once — the task queue is precisely the mechanism a delayed-execution evasion technique relies on.',
+
+  runtimeSecurityAngle: 'Building a monitor that reacts to page activity means knowing exactly where its own callback lands in this ordering. A `MutationObserver` callback, for example, is itself scheduled as a microtask, and batched — it never fires synchronously during the DOM change that triggered it, and it fires once per microtask checkpoint with ALL mutations queued since the last checkpoint, not once per individual mutation. A monitor built on the wrong assumption — expecting one callback per mutation, or expecting to run before the triggering script\'s synchronous code has finished — will silently misread what happened on the page. The general rule for instrumentation: before reacting to any browser callback, check whether it is a task or a microtask, and whether it batches — that answer determines what you can and cannot safely assume about its order relative to everything else running.',
+
+  keyTakeaways: [
+    'JavaScript has exactly one call stack; the event loop, tasks (macrotasks), and microtasks are provided by the host environment, not by the ECMAScript language itself.',
+    'The entire microtask queue drains — including microtasks scheduled by other microtasks during that drain — before the next macrotask ever runs.',
+    'A setTimeout delay is a minimum wait, not a guarantee: the callback still needs an empty call stack and its turn in the macrotask queue.',
+    'Recursively self-scheduling microtasks can starve macrotasks and rendering indefinitely, even though no single synchronous operation is blocking the call stack.',
+    'Task/microtask scheduling is something attackers can exploit too: delaying malicious code by several macrotasks is a real technique for evading a scan that only inspects a page once.',
+  ],
 
   labs: [
     {

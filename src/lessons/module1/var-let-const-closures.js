@@ -71,13 +71,35 @@ export default {
   },
 
   mentalModel: {
+    coreIdea: 'Every variable declaration creates a binding somewhere, and where that "somewhere" is depends entirely on the keyword. `var` bindings belong to the nearest function; `let`/`const` bindings belong to the nearest block — and a loop body is a block, so a `for (let ...)` loop hands each iteration its own private copy of the loop variable to close over, while a `for (var ...)` loop only ever has the one variable it started with. Everything below follows from that single difference — it is not that `let` is "smarter" about closures, it is that it lives somewhere else.',
     explanation: 'Every variable binding lives in a lexical environment — a record of names-to-values tied to a specific scope. `var` declarations are attached to the nearest FUNCTION (or global) environment, no matter how deeply nested inside blocks (if/for/while) they appear — a `for` loop does not create a new environment for `var`. `let`/`const` are attached to the nearest BLOCK environment, and critically, the specification defines `for (let ...)` as creating a genuinely fresh lexical environment for EACH iteration of the loop — a new binding, initialized by copying the previous iteration\'s value, not the same binding mutated in place. That\'s the entire mechanism behind "each closure gets its own let, but they all share one var" — it\'s not a special-case rule for closures, it\'s a direct consequence of how many environments exist.',
+    snippet: `// var: one binding, shared by the whole function — it outlives the loop
+for (var i = 0; i < 3; i++) {}
+console.log(i); // 3 — "i" still exists here; var leaked out of the loop block
+
+// let: one fresh binding per iteration — none of them are visible outside
+for (let j = 0; j < 3; j++) {}
+console.log(j); // ReferenceError — "j" was never declared in this scope`,
     distinctions: [
       { label: 'ECMAScript spec', text: 'The per-iteration environment for `for (let ...)` is explicitly defined in the ECMAScript spec (CreatePerIterationEnvironment) — this is guaranteed language behavior, identical across every conforming engine, not a browser feature.' },
       { label: 'Simplified model', text: '"Hoisting moves declarations to the top of the function" is the common shorthand. More precisely: during a creation phase, before any code runs, the whole scope is scanned for declarations — `var` bindings are created and initialized to `undefined` immediately; `let`/`const` bindings are created but left uninitialized (the Temporal Dead Zone) until their declaration statement actually executes.' },
       { label: 'Implementation detail', text: 'Whether an engine literally allocates a new heap-backed environment object per loop iteration, or optimizes it away when no closure actually captures the variable, is up to the engine (V8 does optimize this when it can prove no closure escapes). The OBSERVABLE behavior — each iteration\'s closures see their own value — is guaranteed regardless; how the engine achieves it is not something the spec mandates.' },
     ],
   },
+
+  nuance: '`const` cannot be the counter in a classic C-style loop — `for (const i = 0; i < 3; i++)` throws a `TypeError` the moment `i++` tries to reassign a `const` binding. `for (const x of someIterable)` works fine, though, which surprises people until they see why: `for...of` never reassigns `x` at all. Each iteration gets a brand-new binding initialized fresh from the iterator, not the previous binding mutated in place — so `const` is never actually violated. The rule isn\'t "for loops special-case const"; it\'s that a C-style loop\'s `i++` is a reassignment and `for...of` never performs one.',
+
+  securityAngle: 'Picture a runtime monitor that walks a page\'s `<script>` tags in a loop and, for each one, registers a listener meant to report which script triggered a later action: `for (var i = 0; i < scripts.length; i++) { scripts[i].addEventListener("load", function () { report(scripts[i]); }); }`. Because `var i` is one shared binding, every listener created in that loop closes over the same `i` — and by the time any of them actually fires, the loop has already finished and `i` sits at `scripts.length`. Every report this monitor produces ends up pointing at `scripts[scripts.length]` (`undefined`) instead of the script that actually loaded. Nothing crashes and nothing throws — the monitor just silently attributes every event to the wrong script, which is worse than crashing, because a wrong answer that looks confident is more dangerous than an obvious failure. Changing `var i` to `let i` is the entire fix.',
+
+  runtimeSecurityAngle: 'Runtime security instrumentation is disproportionately loop-and-register code: attach a listener to every form field, wrap every script tag, hook every outbound request. That shape makes this exact binding distinction a recurring, easy-to-miss defect — one with no error, no crash, and nothing visibly wrong in casual testing, because a single script on the page produces correct-looking output regardless of whether the binding is shared or per-iteration. The bug only becomes observable with two or more items in the loop, which is exactly the case most manual testing skips. When you review or write instrumentation, treat any loop that registers a callback as needing a specific check: does this callback need to remember which iteration created it, and if so, is it actually capturing a fresh binding — or silently sharing one with every other callback in the loop?',
+
+  keyTakeaways: [
+    '`var` is function-scoped; `let`/`const` are block-scoped, and a loop body is a block — that one fact explains every difference in this lesson.',
+    '`for (let i ...)` creates a fresh lexical environment per iteration (CreatePerIterationEnvironment); `for (var i ...)` never does, so there is exactly one `i` for the whole loop.',
+    'A closure captures a live binding, not a snapshot of a value — it reads whatever the binding holds at CALL time, which is usually well after the loop has finished.',
+    '`const` fails as a C-style loop counter (the increment reassigns it) but works in `for...of` (which never reassigns — it rebinds fresh each iteration).',
+    'This is a silent correctness bug, not just an interview topic — and it shows up constantly in the per-node, per-script loops that runtime security instrumentation is built from.',
+  ],
 
   example: {
     runner: 'worker',

@@ -15,7 +15,11 @@ function minimalLesson(overrides = {}) {
     id: 'x', moduleId: 'scope-execution-closures', title: 't', estimatedMinutes: 10, difficulty: 'foundational',
     prerequisites: [], relatedMissionIds: [], skillTags: ['fundamentals'],
     whyItMatters: { development: 'd', security: 's', sourceDefense: 'sd' },
-    mentalModel: { explanation: 'e', distinctions: [{ label: 'ECMAScript spec', text: 't1' }, { label: 'Simplified model', text: 't2' }] },
+    mentalModel: { coreIdea: 'ci', explanation: 'e', snippet: 'const x = 1;', distinctions: [{ label: 'ECMAScript spec', text: 't1' }, { label: 'Simplified model', text: 't2' }] },
+    nuance: 'n',
+    securityAngle: 'sa',
+    runtimeSecurityAngle: 'rsa',
+    keyTakeaways: ['k1', 'k2', 'k3'],
     example: { runner: 'worker', code: 'console.log(1);', predictPrompt: 'p' },
     labs: [minimalLab('a'), minimalLab('b'), minimalLab('c')],
     knowledgeCheck: [
@@ -73,6 +77,41 @@ describe('validateLesson (unit)', () => {
   test('throws when an iframe-runner example has no siteSnapshot', () => {
     const bad = minimalLesson({ example: { runner: 'iframe', code: 'x', predictPrompt: 'p' } });
     assert.throws(() => validateLesson(bad), /siteSnapshot/);
+  });
+
+  test('throws when mentalModel.coreIdea is missing', () => {
+    const bad = minimalLesson({ mentalModel: { explanation: 'e', snippet: 's', distinctions: minimalLesson().mentalModel.distinctions } });
+    assert.throws(() => validateLesson(bad), /coreIdea/);
+  });
+
+  test('throws when mentalModel.snippet is missing', () => {
+    const bad = minimalLesson({ mentalModel: { coreIdea: 'ci', explanation: 'e', distinctions: minimalLesson().mentalModel.distinctions } });
+    assert.throws(() => validateLesson(bad), /snippet/);
+  });
+
+  test('throws when nuance is missing', () => {
+    const bad = minimalLesson({ nuance: '' });
+    assert.throws(() => validateLesson(bad), /nuance/);
+  });
+
+  test('throws when securityAngle is missing', () => {
+    const bad = minimalLesson({ securityAngle: '' });
+    assert.throws(() => validateLesson(bad), /securityAngle/);
+  });
+
+  test('throws when runtimeSecurityAngle is missing', () => {
+    const bad = minimalLesson({ runtimeSecurityAngle: '' });
+    assert.throws(() => validateLesson(bad), /runtimeSecurityAngle/);
+  });
+
+  test('throws with fewer than 3 keyTakeaways', () => {
+    const bad = minimalLesson({ keyTakeaways: ['only one'] });
+    assert.throws(() => validateLesson(bad), /keyTakeaways/);
+  });
+
+  test('throws with more than 5 keyTakeaways', () => {
+    const bad = minimalLesson({ keyTakeaways: ['1', '2', '3', '4', '5', '6'] });
+    assert.throws(() => validateLesson(bad), /keyTakeaways/);
   });
 });
 

@@ -98,13 +98,33 @@ export default {
   },
 
   mentalModel: {
+    coreIdea: 'A click doesn\'t just happen "at" the element you clicked — the browser already knows the full ancestor chain from the document root down to that element before dispatch even starts, and it walks that chain twice: once inward (capturing), once outward (bubbling), calling whichever listeners are registered for each direction along the way. Delegation, capture-phase interception, and the target/currentTarget distinction are all just consequences of "the event visits every ancestor, in and then back out."',
     explanation: 'When an event is dispatched, the browser first computes its full propagation path — from the document root down to the actual target element. Dispatch then happens in three phases: CAPTURING (from the root down to, but not including, the target — only listeners registered with `{capture: true}` run here), TARGET (listeners on the target itself run in registration order, regardless of their capture flag), then BUBBLING (from the target back up to the root — only listeners registered without `capture: true` run here, unless the event\'s `bubbles` property is false, in which case this phase is skipped entirely). `event.target` is fixed for the whole dispatch — it\'s always the real originating element. `event.currentTarget` changes throughout — it\'s always whichever element the currently-executing listener happens to be attached to.',
     distinctions: [
       { label: 'Browser-provided', text: 'The entire capture/target/bubble event dispatch model is defined by the DOM Standard (a browser/WHATWG specification) — it is NOT part of ECMAScript. JavaScript in a non-browser environment (like a plain Node.js script with no DOM) has no such concept at all.' },
       { label: 'Simplified model', text: '"Bubbling" as a rising-bubble metaphor is a helpful name, not a mechanism — precisely, it\'s a defined traversal of the already-computed ancestor path, back toward the root, calling non-capturing listeners along the way.' },
       { label: 'Implementation detail', text: 'How a browser internally stores and iterates a node\'s listener list is unspecified — the OBSERVABLE guarantee is only that same-element, same-phase listeners run in registration order, and that capture always precedes target which always precedes bubble.' },
     ],
+    snippet: `container.addEventListener('click', function (event) {
+  console.log(event.target);        // the actual element clicked — could be any descendant
+  console.log(event.currentTarget); // always "container" — wherever THIS listener lives
+});
+// Click any descendant of container: target changes every time, currentTarget never does.`,
   },
+
+  nuance: '`cloneNode(true)` copies an element\'s attributes, children, and structure — but never its attached event listeners, because listeners aren\'t part of the DOM tree or its attributes; they\'re an internal association the browser keeps separately. `var clone = node.cloneNode(true); node.replaceWith(clone);` is a real technique — used both accidentally, by code that doesn\'t realize it\'s dropping listeners, and deliberately, to strip listeners a script doesn\'t control — for silently removing every listener attached to an element without changing its visible markup at all. A capture-phase listener on a stable ancestor (delegation) is immune to this, since it never depended on the replaced node having its own listener in the first place — one more reason delegation is a more robust pattern, not just a convenience for dynamically-added elements.',
+
+  securityAngle: 'The exact mechanism the "observe before the page reacts" lab just used defensively is also the most common way a malicious script skims a payment form: `document.addEventListener("input", harvest, true)` — one capture-phase listener on `document`, registered the moment the malicious script loads, needs zero knowledge of the payment form\'s structure and sees every keystroke in every input on the page, including ones added to the DOM later. Because it runs during the capture phase, it sees each value before the page\'s own bubble-phase input handlers do — before any client-side masking, formatting, or validation the page applies. Nothing about the registration syntax distinguishes this from a legitimate listener; `addEventListener` has no concept of "this script shouldn\'t be allowed to listen here." Telling the two apart requires looking at who registered the listener and what it does with the data, not how it was registered.',
+
+  runtimeSecurityAngle: 'A defensive monitor built the same way — one capture-phase listener on `document`, watching `input`/`submit`/`click` on sensitive fields — has a real advantage: it can inspect, and with `stopImmediatePropagation()` even veto, an interaction before any other script\'s handler runs, including a malicious one registered later. But capture-phase advantage only holds if the monitor\'s listener is attached FIRST: same-element, same-phase listeners run in registration order, so a malicious script\'s capture-phase listener registered earlier still wins on that element. A monitoring script generally needs to be one of the very first scripts to execute on the page, and to listen on `document` or an equally high ancestor, to have any real chance of consistently observing before untrusted code does — "runs early" is doing as much work here as "capture phase" is.',
+
+  keyTakeaways: [
+    'Dispatch happens in three phases — capturing (root → target), target, bubbling (target → root) — and only listeners matching the current phase\'s capture flag run in each.',
+    'event.target is fixed for the whole dispatch (the real originating element); event.currentTarget is whichever element the currently-running listener is attached to, and changes as propagation moves.',
+    'Delegation works because bubbling is evaluated against the DOM as it exists at dispatch time — a listener attached once still fires for descendants added long afterward.',
+    'cloneNode(true) never copies event listeners — replacing a node with its clone is a real way, accidental or deliberate, to silently strip every listener from it.',
+    'A capture-phase listener on document needs no knowledge of page structure to observe every interaction below it — the same mechanism defensive instrumentation and form-skimming malware both rely on; only registration order and intent distinguish them.',
+  ],
 
   example: {
     runner: 'iframe',

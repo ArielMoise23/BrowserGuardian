@@ -90,13 +90,37 @@ export default {
   },
 
   mentalModel: {
+    coreIdea: 'Every evasion technique in this lesson reduces to the same fact: instrumentation written in JavaScript is just more JavaScript, sharing the same realm, the same privileges, and the same lack of built-in execution-order guarantees as anything it\'s trying to watch. Assuming you\'ll always run first, always get called the "normal" way, or that a captured reference stays trustworthy forever means relying on something the browser never actually promised.',
     explanation: 'Almost every runtime-instrumentation evasion technique reduces to one fact: instrumentation implemented in JavaScript is itself just more JavaScript, running in the same realm, with the same privileges, as anything it\'s trying to observe. There is no OS-level or browser-enforced guarantee about EXECUTION ORDER between scripts sharing a page beyond whatever the page\'s own loading sequence establishes — so "I captured a pristine reference" is only meaningful if you captured it before anything hostile had a chance to run, and nothing about the browser enforces that ordering FOR you. Similarly, "this function was called normally" is a claim about the call site\'s specific mechanics (receiver, arguments) — mechanics fully controllable by whoever is doing the calling.',
     distinctions: [
       { label: 'ECMAScript spec', text: 'That a bare function call (`fetch(url)`, no object before the dot) has `this === undefined` inside a strict-mode function — rather than defaulting to the global object — is precise, specified ECMAScript behavior, and it\'s exactly the mechanic the receiver-bypass lab exploits.' },
       { label: 'Simplified model', text: '"Capturing a pristine reference protects it" is only ever true relative to a specific point in time — it protects YOUR code\'s ability to reach the real implementation from then on, but does nothing for the shared global name, and is worthless if captured after hostile code already ran.' },
       { label: 'Browser-provided', text: 'None of the evasion techniques in this lesson defeat an actual BROWSER-enforced boundary (like cross-origin realm isolation, covered in an earlier lesson) — they defeat JAVASCRIPT-level defenses implemented as ordinary same-realm code. This is precisely why genuinely hostile-code-resistant protection has to rely on real realm separation, not reference games, wherever that\'s an option.' },
     ],
+    snippet: `// Harvesting an untampered reference from a fresh, same-origin iframe — even if
+// the MAIN page's own window.fetch has already been monkey-patched by something
+// that ran earlier, a brand-new iframe gets its own realm with its own, still-
+// pristine copy of every built-in.
+var frame = document.createElement('iframe');
+frame.style.display = 'none';
+document.body.appendChild(frame);
+var cleanFetch = frame.contentWindow.fetch; // untouched, regardless of main-page state
+document.body.removeChild(frame); // the reference survives even after the iframe is gone`,
   },
+
+  nuance: 'The clean-realm technique in the snippet above works because each realm — each window, including a freshly created iframe\'s — gets its own, completely separate set of built-in objects and prototypes; patching `window.fetch` or `Array.prototype.push` in the main page never touches the corresponding objects in a different realm, because they were never the same object to begin with, only equivalent ones. This is also its limit: it only helps against tampering that already happened in the MAIN page\'s realm. If the environment creating the clean iframe is itself compromised before this code runs — if `document.createElement` or the DOM APIs used to build the iframe are no longer trustworthy — the technique doesn\'t help, because it depends on being able to reach a genuinely untouched realm through APIs that are themselves still pristine.',
+
+  securityAngle: 'Put the three lab techniques together and you get a realistic picture of why "we have a fetch monitor" is a much weaker claim than it sounds: a compromised third-party script that loads early can win the reference-capture race before any monitor installs, can call the wrapped fetch through `.call()`/`.apply()` with an explicit receiver to dodge a naive bare-call check, and can use `sendBeacon` or an image beacon instead of fetch entirely to sidestep a fetch-only monitor altogether (the exfiltration-channel problem from an earlier lesson). None of these individually require anything exotic — they\'re all standard, well-documented JavaScript behavior, combined deliberately. This is exactly why a security team\'s honest answer to "can this be bypassed" is never a flat no: it\'s a specific list of what the control actually covers, and matching that list against what a determined script could still do is the actual work of evaluating whether a given piece of instrumentation is worth deploying.',
+
+  runtimeSecurityAngle: 'Given that reference-capture timing is a race and receiver-based checks are trivially steerable, realistic defenses layer several things rather than relying on any single trick. Being the literal first script the page loads — a synchronous script tag placed before every other script, including third-party tags — wins the reference-capture race deterministically rather than probabilistically; that\'s a deployment/ordering decision, not a JavaScript technique. Checking calling convention (receiver, argument shape) can catch unsophisticated bypasses cheaply, but, as the receiver-bypass lab showed, should never be the ONLY check, since it\'s checking incidental call-site mechanics rather than what the call actually does. The more durable signal is behavioral: what URL is this request actually going to, what data does it actually contain, does this pattern match known-legitimate traffic — that question is much harder for an attacker to dodge than "was this call shaped exactly the way the monitor expected."',
+
+  keyTakeaways: [
+    'Instrumentation written in JavaScript shares the same realm and privileges as anything it\'s watching — there is no built-in guarantee it runs, or captures references, before untrusted code does.',
+    'A reference captured after hostile code has already run is not pristine, no matter how confident the capturing code is — reference capture is a race, not a guarantee.',
+    'A separate realm (a fresh same-origin iframe) has its own genuinely distinct built-ins, untouched by whatever the main page\'s realm has already had patched — that\'s what makes the clean-realm technique work, and also its limit.',
+    'A check based on calling convention (receiver, argument shape) is checking incidental call-site mechanics the caller fully controls — fn.call(explicitReceiver, ...) defeats a bare-call-only check trivially.',
+    'None of these techniques defeat an actual browser-enforced boundary like realm isolation — they defeat same-realm JavaScript defenses, which is why the honest answer to "can this be bypassed" is a specific list of coverage, never a flat no.',
+  ],
 
   example: {
     runner: 'worker',

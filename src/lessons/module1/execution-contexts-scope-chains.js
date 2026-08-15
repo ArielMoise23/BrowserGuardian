@@ -75,18 +75,42 @@ export default {
 
   whyItMatters: {
     development: 'Every "why can I see this variable here but not there" question has one precise answer: the scope chain. Once you can trace it by hand, these bugs stop being mysterious.',
-    security: 'A closure keeps its ENTIRE referenced environment alive, not just the field it uses — if instrumentation code closes over a big object (a request payload, a DOM subtree, a sensitive field) just to read one property later, it silently retains the whole thing for as long as that closure exists.',
+    security: 'Get this wrong while reviewing instrumentation and you\'ll miss exactly the kind of quiet memory-retention bug that only shows up hours into a long browsing session, not in a quick manual test — see the runtime security angle below for the concrete failure mode.',
     sourceDefense: 'Reasoning precisely about what a given piece of code can and cannot reach — and what it\'s accidentally holding onto — is exactly what reviewing someone else\'s instrumentation code for correctness and safety requires.',
   },
 
   mentalModel: {
+    coreIdea: 'Every time a function runs, JavaScript builds a small record of "what names exist here and what do they refer to," and gives that record a pointer back to the record for whichever scope it\'s physically nested inside in the source code. Looking up a variable is just following that chain of pointers outward until something matches. Nothing about which function CALLED this one is involved — only where the code was WRITTEN.',
     explanation: 'An execution context is created every time a function is called (plus one for the top-level script): it bundles a LexicalEnvironment (where new `let`/`const`/function declarations in this scope live and, critically, a reference to the PARENT environment), a VariableEnvironment (where `var` and function declarations live), and a `this` binding. The "scope chain" for a piece of code is just: start at its own environment, and if a name isn\'t found, follow the parent-environment reference outward, repeating until you reach the global environment or find the name. This lookup only ever walks OUTWARD, following where the code was physically written (lexical/static scoping) — never based on who called the function.',
+    snippet: `function outer() {
+  let x = "outer";
+  function inner() { console.log(x); } // no local "x" — must look outward
+  return inner;
+}
+
+var fn = outer();
+fn(); // "outer" — found by walking the scope chain from where inner() was
+      // DEFINED, not from wherever fn() happens to be CALLED`,
     distinctions: [
       { label: 'ECMAScript spec', text: 'Execution contexts, Environment Records, and the outer-environment-reference chain are precisely defined in the spec (Lexical Environment / Environment Record). "Scope chain" is the informal name developers use for this reference chain.' },
       { label: 'Simplified model', text: 'Thinking of scope as "nested boxes, each with a link to the box outside it" is accurate and useful — just remember the boxes are created per function CALL (and per block, for let/const), not per function definition. Calling the same function twice creates two separate boxes.' },
       { label: 'Implementation detail', text: 'How an engine physically stores an environment record (a real heap object vs. a stack slot the engine proves is safe to allocate cheaply) is an optimization detail — V8 can avoid heap-allocating an environment entirely if it can prove no closure escapes that would need it later.' },
     ],
   },
+
+  nuance: '"Scope" and "execution context" are related but not interchangeable, and interviewers often probe exactly this distinction. Scope is a static, purely lexical property of the source code — the set of identifiers a piece of code can see is fully determined by where it\'s written, before anything ever runs. An execution context is a runtime object created fresh every time a function is CALLED, containing that call\'s own environment record, its `this` binding, and a reference to the outer environment. Calling the same function three times creates three separate execution contexts — three separate environment records — but all three still have exactly the same scope, because scope describes the code\'s structure, not any particular invocation of it.',
+
+  securityAngle: 'Say a payment page defines `function initCheckout() { const merchantApiKey = fetchKey(); function onSubmit() { charge(merchantApiKey); } form.addEventListener("submit", onSubmit); }`. A third-party script injected onto the page — through a compromised ad tag, a vulnerable dependency, or a supply-chain compromise — cannot reach `merchantApiKey` directly, no matter how it inspects the global object or walks the DOM: that value was never assigned anywhere reachable outside `initCheckout`\'s own environment, and scope-chain lookup only grants access lexically, from code physically written inside that closure. What third-party code CAN do is register its own separate listener on the same form, or override `onSubmit` if it was ever exposed as a global or a DOM property — the actual exposure is about what gets attached to something reachable from outside, not a weakness in scope-chain lookup itself. Tracing precisely what a suspicious script can and cannot reach, by tracing where values were actually declared, is a core skill for judging whether it is a real threat to a specific value or just unrelated noise running nearby.',
+
+  runtimeSecurityAngle: 'Instrumentation code is closure-heavy by necessity — a wrapped `fetch`, a MutationObserver callback, a patched `addEventListener` all need to remember something from the moment they were installed (the original function, the node being watched, some configuration) every time they later run, and a closure is exactly the mechanism for that. The risk runs the opposite direction from the security angle above: instrumentation that closes over more than it needs — an entire request object, a whole DOM subtree snapshot, a full script inventory — keeps all of it reachable for as long as that instrumentation is active, which for a monitor running for an entire page session can mean real, measurable memory growth. When writing or reviewing runtime security code, ask the same question of every closure: what does this callback actually need to remember, and is it capturing exactly that value, or capturing a larger object that happens to contain it?',
+
+  keyTakeaways: [
+    'An execution context is created fresh on every function call; scope itself is static, determined purely by where code is written in the source.',
+    'Scope-chain lookup is lexical, not dynamic — it walks outward through enclosing scopes based on source structure, never based on which function called the current one.',
+    'A closure retains a reference to the variable it closes over, not a snapshot of its value — closing over a big object keeps the whole object alive even if only one field is ever read.',
+    'The scope chain doubles as a security boundary: a value never assigned to anything reachable outside its closure cannot be read by other scripts on the page, however they inspect globals or the DOM.',
+    'Extracting only the value you need into its own local variable, instead of closing over the object that contains it, fixes both the memory-retention problem and unnecessary data exposure.',
+  ],
 
   example: {
     runner: 'worker',

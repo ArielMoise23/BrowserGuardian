@@ -67,13 +67,36 @@ export default {
   },
 
   mentalModel: {
+    coreIdea: 'Two URLs are either the same origin or they\'re not — scheme, host, and port must ALL match exactly, no exceptions and no partial credit. Almost everything the browser does to keep one website from reading or interfering with another — blocking DOM access, blocking response reads, scoping cookies — comes down to asking "is the accessing code\'s origin the same as the target\'s?" over and over, in different contexts. CORS doesn\'t change that boundary; it\'s a narrow, server-controlled exception a site can opt into for specific cross-origin reads.',
     explanation: 'An origin is exactly the triple {scheme, host, port} — https://shop.example.com and http://shop.example.com are different origins (scheme differs) even though the host is identical; https://shop.example.com and https://shop.example.com:8443 are different origins (port differs). "Site" is a coarser, different concept: the registrable domain (roughly, the part your organization actually owns, like example.com) plus scheme — so https://shop.example.com and https://blog.example.com are DIFFERENT origins but the SAME site. The Same-Origin Policy is the browser\'s default rule that script on one origin cannot read the DOM or most responses belonging to a different origin. CORS is a mechanism for a SERVER to opt back IN to allowing a specific cross-origin request\'s response to be read by script — it relaxes SOP for reads, on the server\'s explicit say-so; it is not a security feature that adds protection on its own.',
     distinctions: [
       { label: 'Browser-provided', text: 'Origins, the Same-Origin Policy, and CORS enforcement are entirely implemented and enforced by the browser at the network/DOM-access layer — no JavaScript code, however clever, can grant itself access SOP would otherwise deny.' },
       { label: 'Simplified model', text: '"CORS blocks cross-origin requests" is a common but inaccurate shorthand. Simple cross-origin requests are usually SENT — the server receives them either way — CORS specifically controls whether the RESPONSE is readable by the requesting page\'s JavaScript. A missing CORS header does not stop the request from happening; it stops the page from reading what came back.' },
       { label: 'Implementation detail', text: 'Exactly which request characteristics trigger a CORS preflight (an OPTIONS request sent first to ask permission) versus which count as "simple" and skip it is defined by the Fetch specification, but how a given browser batches/caches preflight results is an implementation/performance detail on top of that baseline.' },
     ],
+    snippet: `// Same-origin fetch — reading the response is always allowed
+fetch('/api/profile').then(function (r) { return r.json(); });
+
+// Cross-origin fetch to a server with NO CORS header — the request is still
+// SENT and the server still processes it; only reading the response HERE is blocked
+fetch('https://other-origin.example/api/data')
+  .then(function (r) { return r.json(); })
+  .catch(function (e) { console.log('Blocked reading the response:', e.message); });`,
   },
+
+  nuance: 'Not every cross-origin request is "simple." A request only skips the preflight if it uses GET/HEAD/POST, sets only a small allowlisted set of headers, and keeps Content-Type restricted to a few plain values — anything else, like a custom `Authorization` header, a `Content-Type` of `application/json`, or a PUT/DELETE method, makes the browser send an `OPTIONS` preflight FIRST, asking the server to explicitly confirm (via `Access-Control-Allow-Methods`/`-Headers`) that the real request is allowed, before the real request is ever sent. Credentialed requests — cookies, HTTP auth — add another layer: the server must respond with an exact `Access-Control-Allow-Origin` (never a wildcard `*`) AND `Access-Control-Allow-Credentials: true`, or the browser refuses to expose the response. That combination exists specifically to stop a permissive CORS policy from accidentally exposing cookie-authenticated data to any origin that asks for it.',
+
+  securityAngle: 'A surprisingly common real vulnerability: a server that reflects whatever `Origin` header the browser sent back as the value of `Access-Control-Allow-Origin`, instead of checking it against an allowlist — effectively answering "yes" to every origin while still looking, at a glance, like it has a working CORS policy. Combined with `Access-Control-Allow-Credentials: true`, this lets `attacker.example` load a page that fetches `https://victim.example/api/account` with `credentials: "include"`, have the victim\'s session cookie sent automatically, and actually read the authenticated JSON response back — precisely what the Same-Origin Policy exists to prevent. This is why the spec forbids the literal combination of a wildcard `Access-Control-Allow-Origin: *` with `Access-Control-Allow-Credentials: true`: reflecting the Origin header is a way around that restriction that technically satisfies both rules while defeating the point of either.',
+
+  runtimeSecurityAngle: 'A runtime monitor is just JavaScript running on the page — it is bound by the exact same Same-Origin Policy as anything else on that page, including the third-party scripts it might be trying to watch. If a suspicious script runs inside a cross-origin iframe (a common way third- and fourth-party code is actually embedded), a first-party monitor cannot read that iframe\'s DOM, inspect its variables, or see its network calls directly — SOP blocks the monitor exactly as it blocks anyone else, with no special exception for defensive code. The sanctioned way information crosses that boundary is `postMessage`, which is also why the origin-check discipline from the fix-postmessage-listener lab matters symmetrically for monitoring code: a monitor that receives postMessage data from an embedded frame needs to verify `event.origin` just as carefully as the frame\'s own application code should, or it becomes exactly the kind of forgeable listener this lesson just showed how to fix.',
+
+  keyTakeaways: [
+    'Origin = scheme + host + port, compared exactly, no partial matches. Site = registrable domain + scheme — a coarser concept used for cookies (SameSite), not for the Same-Origin Policy.',
+    'The Same-Origin Policy blocks reading DOM/responses across origins by default; CORS is a server-controlled opt-in that relaxes that for specific reads — it does not stop the request from being sent.',
+    'Only some cross-origin requests skip the preflight; custom headers, non-simple content types, or non-GET/HEAD/POST methods all trigger an OPTIONS preflight first.',
+    'Credentialed cross-origin responses require an exact Access-Control-Allow-Origin (never a wildcard) plus Access-Control-Allow-Credentials: true — reflecting the Origin header back verbatim is a real vulnerability that defeats this.',
+    'A runtime monitor gets no special exemption from SOP — it cannot read a cross-origin iframe\'s contents any more than any other script can, and must origin-check postMessage data exactly as carefully as first-party code should.',
+  ],
 
   example: {
     runner: 'iframe',
