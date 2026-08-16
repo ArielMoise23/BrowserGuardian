@@ -86,44 +86,24 @@ export default {
   relatedMissionIds: ['wrap-fetch-without-breaking-it'],
   skillTags: ['runtimeInstrumentation', 'productionReliability'],
 
-  whyItMatters: {
-    development: 'Wrapping a function without breaking any of its callers is a genuinely tricky correctness problem — arguments, `this`, return values, exceptions, and async behavior all have to survive unchanged.',
-    security: 'This exact pattern — capture a pristine reference, observe around it, call through, return its result untouched — is the foundation of nearly every runtime security instrumentation technique.',
-    sourceDefense: 'This is likely to come up directly as a live-coding or take-home exercise, and it\'s also just what the job is: instrumenting native APIs in a way that survives contact with real, unpredictable production code.',
-  },
+  explanation: [
+    'Wrapping a native function safely is like intercepting a phone call: you pick up first (capture the real implementation before anyone else can), do your own work, then place the same call through with the exact same message, and hand back exactly what came back, unchanged. Nearly every real bug in this pattern comes from skipping one of those four steps, not from anything exotic.',
+    'The safe wrapping shape is always the same: capture a reference to the real, native implementation before anything else can tamper with it; define a replacement that does the observation or policy work; call the captured reference, forwarding the exact same arguments and `this`; return, or re-throw for the error path, exactly what the native call produced. Skipping the first step means the wrapper might capture an already-tampered reference; skipping exact forwarding can break callers relying on the receiver or arguments; returning something other than the native result — the single most common mistake — silently breaks a real feature for every caller.',
+    'Before patching any property, check whether it can even be patched: `Object.getOwnPropertyDescriptor(target, name).configurable` tells you up front, and reassigning a non-configurable property throws a `TypeError` in strict mode, or silently no-ops in sloppy mode, which is worse — the patch appears to succeed while doing nothing. Some built-ins are non-configurable by spec; others are made non-configurable deliberately by earlier code, including other instrumentation that froze what it patched to stop anyone else from unwrapping it. Production code checks `configurable`/`writable` before patching, with a defined fallback, rather than letting the patch attempt itself crash the page.',
+    'The exact four-step pattern taught here for defensive monitoring is indistinguishable, at the code level, from how a malicious script wraps `fetch` to intercept every request a page makes while every caller keeps working exactly as before — "the page still works" is not a security signal, since a well-written malicious wrapper preserves full compatibility by design. Detecting whether an API has already been tampered with needs a different signal: `fetch.toString()` on a pristine native function returns `"function fetch() { [native code] }"`, while an ordinary JavaScript wrapper\'s `.toString()` returns its real source — a real, if gameable, check, since a careful malicious wrapper can override `Function.prototype.toString` itself to fake that marker. Neither side gets a permanent win, which is why realistic runtime security leans on behavioral signals alongside static ones, not any single check.',
+  ],
 
-  mentalModel: {
-    coreIdea: 'Wrapping a native function safely is like intercepting a phone call: you pick up first (capture the real implementation before anyone else can), do whatever you need on your end (log it, check it, decide something), then place the SAME call through to the real destination with the exact same message, and hand back exactly what came back, unchanged. Nearly every real bug in this pattern comes from skipping one of those four steps, not from anything exotic.',
-    explanation: 'The safe wrapping shape is always the same four steps: (1) capture a reference to the real, native implementation BEFORE anything else can tamper with it; (2) define a replacement function that does your observation/logging/policy work; (3) call the captured native reference, forwarding the exact same arguments and `this`; (4) return (or re-throw, for the error path) exactly what the native call produced, unchanged. Skipping step 1 means your wrapper might capture an already-tampered reference. Skipping step 3\'s exact forwarding (arguments, receiver) can break callers that depend on either. Skipping step 4 — returning something other than the native result — is the single most common way instrumentation silently breaks a real feature.',
-    distinctions: [
-      { label: 'ECMAScript spec', text: '`Function.prototype.call`/`.apply` and property reassignment (`self.fetch = ...` or `window.fetch = ...`) are ordinary language features — nothing about "monkey-patching" a global function requires anything beyond standard ECMAScript.' },
-      { label: 'Simplified model', text: '"Just wrap the function and log before/after" undersells the real difficulty — matching the ORIGINAL function\'s argument-forwarding, receiver, return type (sync value vs Promise vs boolean), and error/rejection behavior exactly is where nearly every real bug in this pattern lives.' },
-      { label: 'Implementation detail', text: 'Whether a specific native API\'s properties are configurable (patchable at all) can vary by browser and by API — some browser-internal or frozen properties refuse redefinition entirely, which any production instrumentation has to detect and handle rather than assume away.' },
-    ],
-    snippet: `// BROKEN: drops the return value — every caller now gets undefined
-var original = Math.random;
-Math.random = function () { console.log("called"); original(); }; // no return!
+  distinctions: [
+    { label: 'ECMAScript spec', text: 'Function.prototype.call/.apply and property reassignment are ordinary language features — nothing about monkey-patching a global function requires anything beyond standard ECMAScript.' },
+    { label: 'Simplified model', text: '"Just wrap the function and log before/after" undersells the difficulty — matching the original function\'s argument-forwarding, receiver, return type, and error behavior exactly is where nearly every real bug lives.' },
+    { label: 'Implementation detail', text: 'Whether a specific native API\'s properties are configurable can vary by browser and by API — some refuse redefinition entirely, which production instrumentation has to detect and handle rather than assume away.' },
+  ],
 
-// CORRECT: none of the four steps skipped
-var original2 = Math.random;
-Math.random = function () {
-  console.log("called");                     // 2. observe
-  return original2.apply(this, arguments);    // 3. forward exactly, 4. return unchanged
-};`,
-  },
-
-  nuance: 'Before patching any property, it\'s worth checking whether it can even be patched: `Object.getOwnPropertyDescriptor(target, name).configurable` tells you up front, and reassigning (`obj.prop = wrapper`) a non-configurable, non-writable property throws a `TypeError` in strict mode — or silently no-ops in sloppy mode, which is worse, because the patch appears to succeed while doing nothing. Some built-ins are non-configurable by spec; others can be made non-configurable deliberately by earlier code, including, notably, by OTHER instrumentation that got there first and froze what it patched specifically to stop anyone else from unwrapping it. Production instrumentation checks `configurable`/`writable` before attempting to patch, and has a defined fallback — skip and log, or fail loudly — rather than letting an uncaught TypeError from the patch attempt itself crash the page it was supposed to be protecting.',
-
-  securityAngle: 'The exact four-step pattern this lesson teaches for defensive monitoring is indistinguishable, at the code level, from how a malicious script wraps `fetch` or `XMLHttpRequest.prototype.send` to intercept every request a page makes — including ones carrying session tokens, form submissions, or API responses containing sensitive data — while every caller keeps working exactly as before, because the wrapper still forwards correctly and returns the real result. A well-written malicious wrapper is, by design, behaviorally invisible to anything checking whether the page still works. This is precisely why "does the page still function correctly" is not a security signal at all: a broken page is a QA bug, while a wrapper that preserves perfect behavioral compatibility while quietly copying every request body to a second destination is the actual threat — nothing about correct forwarding versus malicious forwarding differs in how the wrapper is invoked or what it returns.',
-
-  runtimeSecurityAngle: 'Since a wrapper\'s own behavior gives nothing away, detecting whether an API has already been tampered with has to look at a different signal: comparing the current function against what a pristine one should look like. `fetch.toString()` on a native, unpatched function returns `"function fetch() { [native code] }"` — an ordinary JavaScript wrapper\'s `.toString()` returns its actual source instead, because it isn\'t native code at all. That\'s a real, if narrow, detection signal — checking for the `[native code]` marker before trusting an API is still pristine — and it\'s also exactly the kind of check that becomes an arms race: a sufficiently careful malicious wrapper can override `Function.prototype.toString` itself to fake that marker for its own wrapped functions. Neither side gets a permanent win here, which is why realistic runtime security leans on behavioral signals (what does this code actually DO) alongside static ones (what does this function\'s source claim to be), rather than trusting any single check.',
-
-  keyTakeaways: [
-    'The safe-wrapping shape is four steps — capture the pristine reference first, observe, forward arguments/this exactly, return the unchanged result — and skipping any one breaks something specific and identifiable.',
-    'Check configurable/writable before patching a property — some are non-configurable by spec, and others may already be frozen by earlier code, including other instrumentation that got there first.',
-    'A perfectly behaving wrapper and a malicious one look identical from the outside — "the page still works" is not a security signal, since a well-written malicious wrapper preserves full compatibility by design.',
-    'fn.toString() returning "[native code]" is a real, and gameable, signal for whether a function is still pristine — malicious code can override Function.prototype.toString itself to fake it.',
-    'A Proxy intercepts an entire object\'s unknown surface via traps but changes the object\'s identity (proxy !== target); direct property reassignment preserves identity but only covers properties named explicitly.',
+  tldr: [
+    'The safe-wrapping shape is four steps — capture the pristine reference first, observe, forward arguments/this exactly, return the unchanged result — skipping any one breaks something specific.',
+    'Check configurable/writable before patching a property — some are non-configurable by spec, others may already be frozen by earlier code, including other instrumentation.',
+    'A perfectly behaving wrapper and a malicious one look identical from the outside — "the page still works" is not a security signal.',
+    'fn.toString() returning "[native code]" is a real, gameable signal for whether a function is pristine — malicious code can override Function.prototype.toString to fake it.',
   ],
 
   example: {

@@ -33,7 +33,10 @@
       "Bash(lsof -i :8080 -sTCP:LISTEN)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/)",
       "Bash(node verify.js)",
-      "Bash(node --test tests/lesson-schema.test.js)"
+      "Bash(node --test tests/lesson-schema.test.js)",
+      "Bash(curl -s http://localhost:8080/src/utils/dom.js)",
+      "Bash(curl -s http://localhost:8080/src/game/modules.js)",
+      "Bash(node --input-type=module -e ' *)"
     ]
   }
 }

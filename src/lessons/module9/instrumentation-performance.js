@@ -77,49 +77,24 @@ export default {
   relatedMissionIds: ['security-at-200ms'],
   skillTags: ['performance', 'productionReliability'],
 
-  whyItMatters: {
-    development: 'Any code that runs on every event, every mutation, or every network call has to be cheap — "correct but slow" is not actually correct in a hot path, it\'s a different bug.',
-    security: 'A security control that visibly degrades the site it protects gets rolled back, regardless of how good its detection is — performance is a hard requirement for a runtime control to survive contact with production, not a nice-to-have.',
-    sourceDefense: 'You will be expected to measure overhead precisely (not guess), reduce it without silently losing detection, and make sure your own instrumentation can never be the thing that breaks the page — this lesson is exactly those three skills.',
-  },
+  explanation: [
+    'A security control that makes the page measurably slower gets rolled back, no matter how good its detection is — which makes "is this fast enough" a survival requirement for a runtime control, not a nice-to-have. Answering it means actually measuring, with a tool built for the job, under realistic conditions — never guessing, and never trusting a synthetic best case.',
+    '`performance.now()` returns a high-resolution timestamp that only ever moves forward, unaffected by system clock adjustments — the correct tool for measuring elapsed time, unlike `Date.now()`, which is lower-resolution and can jump if the clock changes. Measuring overhead means timestamping immediately before and after the code in question, but only meaningfully if you measure the actual hot path under realistic conditions. Reliability is separate: any exception thrown inside a monitor has to be caught locally, so the real underlying functionality still runs regardless of what happens in the monitoring code around it.',
+    'A single before/after measurement can mislead depending on what you are measuring. A function\'s first few calls run before the JIT compiler has optimized it, so a one-shot measurement of hot-path code — a fetch wrapper, an event listener, anything that runs thousands of times in a session — can look several times slower than its steady-state cost. The fix is measuring across many iterations and looking at a representative sample, not the first run; code that genuinely only runs once, like an initialization hook, is the opposite case, where the cold-start cost IS the real cost.',
+    'Overhead can be an attack surface in its own right: if a monitor\'s cost scales with attacker-influenced input — rescanning the whole DOM on every mutation, say — a script can deliberately trigger its expensive path to degrade the page or get the monitor blamed for a slowdown something else caused. Reducing overhead without losing detection means choosing a specific, named tradeoff rather than making the existing check faster in place: sampling cuts cost but can miss an incident that falls in the unsampled set; debouncing or batching reduces how often expensive logic runs at the cost of detection latency; moving analysis into a Worker stops it from competing with rendering for the main thread. Each is a legitimate choice with a stated cost — the failure mode is making one of these tradeoffs implicitly, without anyone deciding it was acceptable.',
+  ],
 
-  mentalModel: {
-    coreIdea: 'A security control that makes the page measurably slower gets rolled back, no matter how good its detection is — which makes "is this fast enough" a survival requirement for a runtime control, not a nice-to-have. Answering it means actually measuring, with a tool built for the job, under realistic conditions — never guessing, and never trusting a synthetic best case.',
-    explanation: '`performance.now()` returns a high-resolution timestamp (milliseconds, sub-millisecond precision) that only ever moves forward, unaffected by system clock adjustments — the correct tool for measuring elapsed time, as opposed to `Date.now()`, which is lower-resolution and can jump if the system clock changes. Measuring overhead means timestamping immediately before and after the code in question and taking the difference — deceptively simple, but only meaningful if you\'re measuring the actual hot path under realistic conditions, not a synthetic best case. Reliability, separately, means your instrumentation must never become a new source of site breakage: any exception thrown inside a monitor has to be caught locally and must never prevent the real underlying functionality from still running.',
-    distinctions: [
-      { label: 'Browser-provided', text: 'The Performance API (`performance.now()`, marks, measures) is a browser-provided Web API, not part of ECMAScript — a plain JS engine embedded outside a browser/Node context has no inherent concept of wall-clock timing at all.' },
-      { label: 'Simplified model', text: '"Just wrap it in try/catch" is necessary but not sufficient for reliability — the catch block itself must not swallow the ORIGINAL function\'s own legitimate errors; only the instrumentation\'s own risky work should be shielded, and the real underlying call still needs to happen (or its own errors still need to propagate normally) either way.' },
-      { label: 'Implementation detail', text: 'The precision `performance.now()` actually reports can be intentionally reduced by some browsers (timing-attack mitigation, e.g. against Spectre-class attacks) — treat measured values as accurate to the browser\'s stated resolution, not as infinitely precise.' },
-    ],
-    snippet: `// UNSAFE: an exception here blocks the real function from ever running
-function unsafeWrap(real) {
-  return function (arg) {
-    logSuspiciousActivity(arg); // if this throws, "real" below never executes
-    return real(arg);
-  };
-}
+  distinctions: [
+    { label: 'Browser-provided', text: 'The Performance API is a browser-provided Web API, not part of ECMAScript — a plain JS engine outside a browser/Node context has no inherent concept of wall-clock timing.' },
+    { label: 'Simplified model', text: '"Just wrap it in try/catch" is necessary but not sufficient — the catch block must not swallow the original function\'s own legitimate errors; only the instrumentation\'s own risky work should be shielded.' },
+    { label: 'Implementation detail', text: 'The precision performance.now() reports can be intentionally reduced by some browsers as timing-attack mitigation — treat measured values as accurate to the browser\'s stated resolution, not infinitely precise.' },
+  ],
 
-// SAFE: the real function always runs, regardless of monitoring failures
-function safeWrap(real) {
-  return function (arg) {
-    try { logSuspiciousActivity(arg); } catch (e) { /* monitoring failed, not the page */ }
-    return real(arg);
-  };
-}`,
-  },
-
-  nuance: 'A single performance.now() before/after measurement can be misleading depending on WHAT you\'re measuring. A function\'s first few calls run before the JS engine\'s JIT compiler has had a chance to optimize it, so a one-shot measurement of a hot-path function — one that will run thousands of times during a real session, like a fetch wrapper or an event listener — can look several times slower than its true steady-state cost, because you measured the cold, unoptimized version. The fix for hot-path code is measuring across many iterations and looking at a representative sample, not the first or best-case run. The opposite applies to code that genuinely only runs once, like a one-time initialization hook: there, the cold-start cost IS the real cost, since there is no steady state to reach. Knowing which kind of code you\'re measuring changes what "representative" even means.',
-
-  securityAngle: 'Overhead isn\'t only a user-experience problem — it can be an attack surface in its own right. If a monitor\'s cost scales with something an attacker influences — say, it re-scans the entire DOM on every mutation, or does an expensive comparison against attacker-controlled input — a script can deliberately trigger the monitor\'s expensive path repeatedly (many rapid DOM mutations, unusually large form inputs, deeply nested structures) to degrade the page\'s responsiveness, or in the worst case get the monitor itself blamed for a slowdown a different, legitimate script is actually causing. This is a real reason to measure instrumentation under adversarial as well as typical conditions: "fast enough for normal usage" and "fast enough when someone is actively trying to make it slow" are different bars, and only the second one holds up against a script that has a reason to make your control look expensive.',
-
-  runtimeSecurityAngle: 'Reducing instrumentation overhead without losing detection usually means choosing a specific, named tradeoff, rather than making the existing check faster in place. Sampling — checking, say, 1 in 20 events instead of every one — cuts cost roughly proportionally but can miss a real incident that happened to fall in the unsampled 19. Debouncing/batching (accumulating events and processing them together every N milliseconds, rather than synchronously on each one) reduces how often the expensive logic runs, at the cost of detection latency — an attack is still caught, just slightly later, which matters if the response is "block this" rather than "log this for later review." Moving expensive analysis off the main thread, into a Worker, doesn\'t reduce total work, but stops it from competing with rendering and user interaction for the same thread, which is often what "feels slow" is actually measuring. Each of these is a legitimate choice with a stated cost — the failure mode to avoid is making one of these tradeoffs implicitly, without anyone deciding it was acceptable to sample, delay, or offload detection.',
-
-  keyTakeaways: [
+  tldr: [
     'performance.now() is monotonic and high-resolution — the correct tool for measuring elapsed time, unlike Date.now(), which can jump with system clock changes.',
-    'A cold, first-call, pre-JIT measurement of hot-path code can overstate its real steady-state cost by several times — measure representative repeated calls, not a single first run, for anything that runs often.',
-    'Failing safely means only the monitoring\'s own risky work is wrapped in try/catch — the real underlying function must still run, or its own errors still propagate, regardless of what happens in the monitor.',
-    'Overhead can itself be an attack surface: if a monitor\'s cost scales with attacker-influenced input, a script can deliberately trigger its expensive path to degrade the page or get the monitor blamed.',
-    'Reducing overhead without losing detection means choosing a named, deliberate tradeoff — sampling, debouncing/batching, or offloading to a Worker — each with an honest, stated cost, never silently doing less work.',
+    'A cold, pre-JIT measurement of hot-path code can overstate its real steady-state cost by several times — measure representative repeated calls, not a single first run.',
+    'Failing safely means only the monitoring\'s own risky work is wrapped in try/catch — the real function must still run regardless of what happens in the monitor.',
+    'Reducing overhead without losing detection means choosing a named tradeoff — sampling, debouncing/batching, or offloading to a Worker — each with an honest, stated cost.',
   ],
 
   example: {

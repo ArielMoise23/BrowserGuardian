@@ -45,7 +45,7 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
       ]),
       prereqLine,
     ]),
-    el('div', { class: 'btn-row' }, [
+    el('div', {}, [
       bookmarkBtn,
       el('button', { class: 'btn btn--sm btn--danger', onClick: () => {
         if (confirm('Reset progress for this lesson only? Your XP, missions, and other lessons are untouched.')) {
@@ -56,16 +56,10 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
     ]),
   ]);
 
-  const coreIdea = el('div', { class: 'card' }, [
-    el('h2', {}, '1. Core idea'),
-    el('p', {}, lesson.mentalModel.coreIdea),
-  ]);
-
-  const mechanism = el('div', { class: 'card' }, [
-    el('h2', {}, '2. What actually happens'),
-    el('p', {}, lesson.mentalModel.explanation),
-    el('pre', { class: 'code-source' }, lesson.mentalModel.snippet),
-    el('div', { class: 'distinction-list' }, lesson.mentalModel.distinctions.map((d) =>
+  const explanationSection = el('div', { class: 'card' }, [
+    el('h2', {}, 'Explanation'),
+    ...lesson.explanation.map((p) => el('p', {}, p)),
+    el('div', { class: 'distinction-list' }, lesson.distinctions.map((d) =>
       el('div', { class: 'distinction' }, [
         el('span', { class: `badge badge--${distinctionTone(d.label)}` }, d.label),
         el('span', {}, d.text),
@@ -73,40 +67,16 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
     )),
   ]);
 
+  const tldrSection = el('div', { class: 'card' }, [
+    el('h2', {}, 'TL;DR'),
+    el('ul', {}, lesson.tldr.map((point) => el('li', {}, point))),
+  ]);
+
   const exampleSection = renderExampleSection(lesson);
 
-  const nuanceSection = el('div', { class: 'card' }, [
-    el('h2', {}, '5. Important nuance'),
-    el('p', {}, lesson.nuance),
-  ]);
-
-  const securityAngleSection = el('div', { class: 'card' }, [
-    el('h2', {}, '6. Security angle'),
-    el('p', {}, lesson.securityAngle),
-  ]);
-
-  const runtimeSecurityAngleSection = el('div', { class: 'card' }, [
-    el('h2', {}, '7. Runtime security angle'),
-    el('p', {}, lesson.runtimeSecurityAngle),
-  ]);
-
-  const keyTakeawaysSection = el('div', { class: 'card' }, [
-    el('h2', {}, '8. Key takeaways'),
-    el('ul', {}, lesson.keyTakeaways.map((k) => el('li', {}, k))),
-  ]);
-
-  const whyItMatters = el('div', { class: 'card' }, [
-    el('h3', {}, 'Why this matters'),
-    el('dl', {}, [
-      el('dt', {}, 'In JavaScript development'), el('dd', {}, lesson.whyItMatters.development),
-      el('dt', {}, 'In browser runtime security'), el('dd', {}, lesson.whyItMatters.security),
-      el('dt', {}, 'At Source Defense'), el('dd', {}, lesson.whyItMatters.sourceDefense),
-    ]),
-  ]);
-
   const labsSection = el('div', { class: 'card' }, [
-    el('h2', {}, '9. Micro-labs'),
-    el('p', {}, 'Each lab is graded on what your code actually does, not on matching a fixed answer string — multiple valid solutions are accepted. Submitting reveals a full explanation, so treat each attempt as part of the lesson, not just a pass/fail check.'),
+    el('h2', {}, 'Practice'),
+    el('p', {}, 'Each activity is graded on what your code actually does, not on matching a fixed answer string — multiple valid solutions are accepted. Submitting reveals a full explanation.'),
     ...lesson.labs.map((lab) => {
       const { element } = renderLabRunner(lab, {
         onResult: (result) => {
@@ -132,14 +102,9 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
 
   const view = el('div', { class: 'mission-view' }, [
     header,
-    coreIdea,
-    mechanism,
+    explanationSection,
+    tldrSection,
     exampleSection,
-    nuanceSection,
-    securityAngleSection,
-    runtimeSecurityAngleSection,
-    keyTakeawaysSection,
-    whyItMatters,
     labsSection,
     knowledgeCheck,
     readinessSlot,
@@ -210,7 +175,7 @@ function renderExampleSection(lesson) {
   if (panelsWanted.includes('eventPath')) rightColPanels.push(renderPanel('Event Path', controller.slots.eventPathSlot));
 
   return el('div', { class: 'card' }, [
-    el('h2', {}, '3–4. Try it: predict, run, observe, modify'),
+    el('h2', {}, 'Code example: predict, run, observe, modify'),
     el('p', {}, ex.predictPrompt),
     el('div', { class: 'field' }, [el('label', {}, 'Your prediction'), predictionArea]),
     ex.runner === 'iframe' ? renderPanel('Simulation', previewHost, { flush: true }) : null,
@@ -250,7 +215,7 @@ function renderKnowledgeCheck(lesson) {
     return el('div', { class: 'card' }, bodySlot);
   });
 
-  return el('div', {}, [el('h2', {}, '10. Knowledge check'), ...cards]);
+  return el('div', {}, [el('h2', {}, 'Knowledge check'), ...cards]);
 }
 
 function buildReadinessSection(lesson) {
@@ -264,7 +229,7 @@ function buildReadinessSection(lesson) {
   const section = (title, content) => el('div', { class: 'debrief__section' }, [el('h3', {}, title), content]);
 
   return el('div', { class: 'card' }, [
-    el('h2', {}, '11. Mission readiness'),
+    el('h2', {}, 'Mission readiness'),
     section('Mastered', mastered.length ? el('ul', {}, mastered.map((l) => el('li', {}, l.title))) : el('p', {}, 'Nothing yet — work through the labs above.')),
     needsReview.length ? section('Needs review', el('ul', {}, needsReview.map((l) => el('li', {}, l.title)))) : null,
     notStarted.length ? section('Still to try', el('ul', {}, notStarted.map((l) => el('li', {}, l.title)))) : null,

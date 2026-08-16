@@ -7,20 +7,9 @@ import { RUNNERS, SUBMISSION_MODES } from './missionSchema.js';
  * `export default`), while validateLesson()/validateLab() below enforce the same contract
  * at runtime, failing loudly at registry build time if a lesson doesn't match.
  *
- * @typedef {Object} MentalModelDistinction
+ * @typedef {Object} Distinction
  * @property {'ECMAScript spec'|'Browser-provided'|'Simplified model'|'Implementation detail'} label
- * @property {string} text
- *
- * @typedef {Object} MentalModel
- * @property {string} coreIdea - Short, intuitive lead-in shown before the technical mechanism.
- * @property {string} explanation - The precise technical mechanism.
- * @property {string} snippet - Minimal illustrative code shown inline with the explanation.
- * @property {MentalModelDistinction[]} distinctions - At least 2, using only the four labels above.
- *
- * @typedef {Object} WhyItMatters
- * @property {string} development
- * @property {string} security
- * @property {string} sourceDefense
+ * @property {string} text - One or two sentences, not a paragraph.
  *
  * @typedef {Object} LessonExample
  * @property {'worker'|'iframe'|'none'} runner
@@ -67,7 +56,12 @@ import { RUNNERS, SUBMISSION_MODES } from './missionSchema.js';
  * @property {string} solution
  * @property {string} explanation
  *
- * The full content + behavior contract for one Guided Learning lesson.
+ * The full content + behavior contract for one Guided Learning lesson. One coherent
+ * explanation, not several sections restating the same idea: `explanation` is the single
+ * source of truth for the concept (central idea first, then mechanism, then — only where
+ * it genuinely helps — a nuance and a security/runtime-instrumentation connection, as
+ * ordinary paragraphs in the flow, not separate headed sections). `tldr` summarizes facts
+ * already stated in `explanation`; it must never introduce anything new.
  * @typedef {Object} LessonContent
  * @property {string} id - Stable, unique across every lesson.
  * @property {string} moduleId - Must reference a real id in MODULES (game/modules.js).
@@ -77,15 +71,12 @@ import { RUNNERS, SUBMISSION_MODES } from './missionSchema.js';
  * @property {string[]} prerequisites - Lesson ids, informational only — never gates access.
  * @property {string[]} relatedMissionIds - Mission ids this lesson prepares a learner for.
  * @property {string[]} skillTags - Must be real entries in SKILL_CATEGORIES (state/persistence.js).
- * @property {WhyItMatters} whyItMatters
- * @property {MentalModel} mentalModel
- * @property {string} nuance - An important edge case, misconception, or interview-relevant detail.
- * @property {string} securityAngle - A concrete security scenario tied to this concept.
- * @property {string} runtimeSecurityAngle - How this concept applies to observing/restricting/instrumenting scripts at runtime.
- * @property {string[]} keyTakeaways - 3-5 precise, standalone points.
- * @property {LessonExample} example
+ * @property {string[]} explanation - Short paragraphs (2-4 sentences each), first = the central idea.
+ * @property {Distinction[]} distinctions - At least 2, using only the four labels above.
+ * @property {string[]} tldr - 2-4 precise bullets, facts only, no new information.
+ * @property {LessonExample} example - The lesson's one code example (interactive: predict, run, observe).
  * @property {string[]} [panels] - Which of trace/dom/network/alerts/eventPath the example/labs show.
- * @property {Lab[]} labs - At least 3.
+ * @property {Lab[]} labs - At least 3 practice activities (predict/modify/implement/break/defend).
  * @property {KnowledgeCheckItem[]} knowledgeCheck - 2-4 items.
  * @property {string[]} interviewQuestions - Exactly 3.
  */
@@ -103,7 +94,7 @@ export function labTypeLabel(type) {
   return LAB_TYPE_LABELS[type] ?? type;
 }
 
-export const MENTAL_MODEL_LABELS = [
+export const DISTINCTION_LABELS = [
   'ECMAScript spec',
   'Browser-provided',
   'Simplified model',
@@ -156,26 +147,19 @@ export function validateLesson(lesson) {
   if (!Array.isArray(lesson?.relatedMissionIds)) errors.push(`lesson "${label}" is missing "relatedMissionIds" (use [] if none)`);
   if (!Array.isArray(lesson?.skillTags) || lesson.skillTags.length < 1) errors.push(`lesson "${label}" needs at least 1 skillTags entry`);
 
-  const wim = lesson?.whyItMatters;
-  if (!wim || !wim.development || !wim.security || !wim.sourceDefense) {
-    errors.push(`lesson "${label}" needs whyItMatters.{development,security,sourceDefense}`);
+  if (!Array.isArray(lesson?.explanation) || lesson.explanation.length < 2) {
+    errors.push(`lesson "${label}" needs at least 2 explanation paragraphs`);
+  } else {
+    lesson.explanation.forEach((p, i) => {
+      if (typeof p !== 'string' || p.trim() === '') errors.push(`lesson "${label}" explanation[${i}] is empty`);
+    });
   }
 
-  const mm = lesson?.mentalModel;
-  if (!mm || typeof mm.coreIdea !== 'string' || mm.coreIdea.trim() === '') {
-    errors.push(`lesson "${label}" needs mentalModel.coreIdea (a short, intuitive lead-in before the technical mechanism)`);
-  }
-  if (!mm || typeof mm.explanation !== 'string' || mm.explanation.trim() === '') {
-    errors.push(`lesson "${label}" needs mentalModel.explanation`);
-  }
-  if (!mm || typeof mm.snippet !== 'string' || mm.snippet.trim() === '') {
-    errors.push(`lesson "${label}" needs mentalModel.snippet (a minimal illustrative code example, shown inline with the explanation)`);
-  }
-  if (!mm || !Array.isArray(mm.distinctions) || mm.distinctions.length < 2) {
-    errors.push(`lesson "${label}" needs at least 2 mentalModel.distinctions`);
+  if (!Array.isArray(lesson?.distinctions) || lesson.distinctions.length < 2) {
+    errors.push(`lesson "${label}" needs at least 2 distinctions`);
   } else {
-    mm.distinctions.forEach((d, i) => {
-      if (!MENTAL_MODEL_LABELS.includes(d.label)) {
+    lesson.distinctions.forEach((d, i) => {
+      if (!DISTINCTION_LABELS.includes(d.label)) {
         errors.push(`lesson "${label}" distinctions[${i}] has invalid label "${d.label}"`);
       }
       if (!d.text || d.text.trim() === '') {
@@ -184,17 +168,8 @@ export function validateLesson(lesson) {
     });
   }
 
-  if (typeof lesson?.nuance !== 'string' || lesson.nuance.trim() === '') {
-    errors.push(`lesson "${label}" needs "nuance" (an important edge case, misconception, or interview-relevant detail)`);
-  }
-  if (typeof lesson?.securityAngle !== 'string' || lesson.securityAngle.trim() === '') {
-    errors.push(`lesson "${label}" needs "securityAngle" (a concrete security scenario tied to this concept)`);
-  }
-  if (typeof lesson?.runtimeSecurityAngle !== 'string' || lesson.runtimeSecurityAngle.trim() === '') {
-    errors.push(`lesson "${label}" needs "runtimeSecurityAngle" (how this concept applies to observing/restricting/instrumenting scripts at runtime)`);
-  }
-  if (!Array.isArray(lesson?.keyTakeaways) || lesson.keyTakeaways.length < 3 || lesson.keyTakeaways.length > 5) {
-    errors.push(`lesson "${label}" needs 3-5 keyTakeaways`);
+  if (!Array.isArray(lesson?.tldr) || lesson.tldr.length < 2 || lesson.tldr.length > 4) {
+    errors.push(`lesson "${label}" needs 2-4 tldr bullets`);
   }
 
   const ex = lesson?.example;

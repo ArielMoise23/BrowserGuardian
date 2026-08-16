@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateLesson, validateLab, LAB_TYPES, MENTAL_MODEL_LABELS } from '../src/game/lessonSchema.js';
+import { validateLesson, validateLab, LAB_TYPES, DISTINCTION_LABELS } from '../src/game/lessonSchema.js';
 import { lessonRegistry } from '../src/game/lessonRegistry.js';
 import { MODULES, validateModules } from '../src/game/modules.js';
 import { registry as missionRegistry } from '../src/game/missionRegistry.js';
@@ -14,12 +14,9 @@ function minimalLesson(overrides = {}) {
   return {
     id: 'x', moduleId: 'scope-execution-closures', title: 't', estimatedMinutes: 10, difficulty: 'foundational',
     prerequisites: [], relatedMissionIds: [], skillTags: ['fundamentals'],
-    whyItMatters: { development: 'd', security: 's', sourceDefense: 'sd' },
-    mentalModel: { coreIdea: 'ci', explanation: 'e', snippet: 'const x = 1;', distinctions: [{ label: 'ECMAScript spec', text: 't1' }, { label: 'Simplified model', text: 't2' }] },
-    nuance: 'n',
-    securityAngle: 'sa',
-    runtimeSecurityAngle: 'rsa',
-    keyTakeaways: ['k1', 'k2', 'k3'],
+    explanation: ['Paragraph one.', 'Paragraph two.'],
+    distinctions: [{ label: 'ECMAScript spec', text: 't1' }, { label: 'Simplified model', text: 't2' }],
+    tldr: ['Point one', 'Point two'],
     example: { runner: 'worker', code: 'console.log(1);', predictPrompt: 'p' },
     labs: [minimalLab('a'), minimalLab('b'), minimalLab('c')],
     knowledgeCheck: [
@@ -44,19 +41,34 @@ describe('validateLesson (unit)', () => {
     assert.doesNotThrow(() => validateLesson(minimalLesson()));
   });
 
-  test('throws when whyItMatters is incomplete', () => {
-    const bad = minimalLesson({ whyItMatters: { development: 'd' } });
-    assert.throws(() => validateLesson(bad), /whyItMatters/);
+  test('throws with fewer than 2 explanation paragraphs', () => {
+    const bad = minimalLesson({ explanation: ['only one'] });
+    assert.throws(() => validateLesson(bad), /explanation/);
   });
 
-  test('throws with fewer than 2 mentalModel distinctions', () => {
-    const bad = minimalLesson({ mentalModel: { explanation: 'e', distinctions: [{ label: 'ECMAScript spec', text: 't' }] } });
+  test('throws with an empty explanation paragraph', () => {
+    const bad = minimalLesson({ explanation: ['fine', '   '] });
+    assert.throws(() => validateLesson(bad), /explanation\[1\]/);
+  });
+
+  test('throws with fewer than 2 distinctions', () => {
+    const bad = minimalLesson({ distinctions: [{ label: 'ECMAScript spec', text: 't' }] });
     assert.throws(() => validateLesson(bad), /distinctions/);
   });
 
   test('throws with an invalid distinction label', () => {
-    const bad = minimalLesson({ mentalModel: { explanation: 'e', distinctions: [{ label: 'Not a real label', text: 't' }, { label: 'ECMAScript spec', text: 't' }] } });
+    const bad = minimalLesson({ distinctions: [{ label: 'Not a real label', text: 't' }, { label: 'ECMAScript spec', text: 't' }] });
     assert.throws(() => validateLesson(bad), /invalid label/);
+  });
+
+  test('throws with fewer than 2 tldr bullets', () => {
+    const bad = minimalLesson({ tldr: ['only one'] });
+    assert.throws(() => validateLesson(bad), /tldr/);
+  });
+
+  test('throws with more than 4 tldr bullets', () => {
+    const bad = minimalLesson({ tldr: ['1', '2', '3', '4', '5'] });
+    assert.throws(() => validateLesson(bad), /tldr/);
   });
 
   test('throws with fewer than 3 labs', () => {
@@ -77,41 +89,6 @@ describe('validateLesson (unit)', () => {
   test('throws when an iframe-runner example has no siteSnapshot', () => {
     const bad = minimalLesson({ example: { runner: 'iframe', code: 'x', predictPrompt: 'p' } });
     assert.throws(() => validateLesson(bad), /siteSnapshot/);
-  });
-
-  test('throws when mentalModel.coreIdea is missing', () => {
-    const bad = minimalLesson({ mentalModel: { explanation: 'e', snippet: 's', distinctions: minimalLesson().mentalModel.distinctions } });
-    assert.throws(() => validateLesson(bad), /coreIdea/);
-  });
-
-  test('throws when mentalModel.snippet is missing', () => {
-    const bad = minimalLesson({ mentalModel: { coreIdea: 'ci', explanation: 'e', distinctions: minimalLesson().mentalModel.distinctions } });
-    assert.throws(() => validateLesson(bad), /snippet/);
-  });
-
-  test('throws when nuance is missing', () => {
-    const bad = minimalLesson({ nuance: '' });
-    assert.throws(() => validateLesson(bad), /nuance/);
-  });
-
-  test('throws when securityAngle is missing', () => {
-    const bad = minimalLesson({ securityAngle: '' });
-    assert.throws(() => validateLesson(bad), /securityAngle/);
-  });
-
-  test('throws when runtimeSecurityAngle is missing', () => {
-    const bad = minimalLesson({ runtimeSecurityAngle: '' });
-    assert.throws(() => validateLesson(bad), /runtimeSecurityAngle/);
-  });
-
-  test('throws with fewer than 3 keyTakeaways', () => {
-    const bad = minimalLesson({ keyTakeaways: ['only one'] });
-    assert.throws(() => validateLesson(bad), /keyTakeaways/);
-  });
-
-  test('throws with more than 5 keyTakeaways', () => {
-    const bad = minimalLesson({ keyTakeaways: ['1', '2', '3', '4', '5', '6'] });
-    assert.throws(() => validateLesson(bad), /keyTakeaways/);
   });
 });
 
@@ -204,8 +181,12 @@ describe('lesson registry: every real lesson', () => {
         lesson.labs.forEach((lab) => assert.ok(LAB_TYPES.includes(lab.type)));
       });
 
-      test('mentalModel distinctions use only the four defined labels', () => {
-        lesson.mentalModel.distinctions.forEach((d) => assert.ok(MENTAL_MODEL_LABELS.includes(d.label)));
+      test('distinctions use only the four defined labels', () => {
+        lesson.distinctions.forEach((d) => assert.ok(DISTINCTION_LABELS.includes(d.label)));
+      });
+
+      test('tldr does not exceed 4 bullets', () => {
+        assert.ok(lesson.tldr.length >= 2 && lesson.tldr.length <= 4);
       });
 
       test('knowledgeCheck questions reference real skill categories', () => {
