@@ -1,5 +1,95 @@
 import { RUNNERS, SUBMISSION_MODES } from './missionSchema.js';
 
+/**
+ * Type contract for lesson content. There is no TypeScript build step in this codebase,
+ * so these JSDoc typedefs are the closest equivalent: they give editor autocomplete/hover
+ * on every lesson file (see the `@type {LessonContent}` annotation above each lesson's
+ * `export default`), while validateLesson()/validateLab() below enforce the same contract
+ * at runtime, failing loudly at registry build time if a lesson doesn't match.
+ *
+ * @typedef {Object} MentalModelDistinction
+ * @property {'ECMAScript spec'|'Browser-provided'|'Simplified model'|'Implementation detail'} label
+ * @property {string} text
+ *
+ * @typedef {Object} MentalModel
+ * @property {string} coreIdea - Short, intuitive lead-in shown before the technical mechanism.
+ * @property {string} explanation - The precise technical mechanism.
+ * @property {string} snippet - Minimal illustrative code shown inline with the explanation.
+ * @property {MentalModelDistinction[]} distinctions - At least 2, using only the four labels above.
+ *
+ * @typedef {Object} WhyItMatters
+ * @property {string} development
+ * @property {string} security
+ * @property {string} sourceDefense
+ *
+ * @typedef {Object} LessonExample
+ * @property {'worker'|'iframe'|'none'} runner
+ * @property {string} code
+ * @property {string} predictPrompt
+ * @property {string} [siteSnapshot] - Required when runner is 'iframe'.
+ * @property {string} [setupScript]
+ * @property {string} [testScript]
+ *
+ * @typedef {Object} KnowledgeCheckItem
+ * @property {string} id
+ * @property {string} question
+ * @property {string} modelAnswer
+ * @property {string} skillTag - Must be a real entry in SKILL_CATEGORIES (state/persistence.js).
+ *
+ * @typedef {Object} AnswerSchemaField
+ * @property {string} id
+ * @property {string} prompt
+ * @property {'boolean'|'select'|'multiselect'|'text'} type
+ * @property {string[]} [options] - Required for 'select'/'multiselect'.
+ *
+ * @typedef {Object} LabValidationResult
+ * @property {boolean} passed
+ * @property {Object<string, number>} score - correctness/security/compatibility/performance -> 0..1.
+ * @property {string[]} [feedback]
+ *
+ * A Lab is deliberately mission-shaped — same runner/submissionMode/validate contract as
+ * a Mission (missionSchema.js) — so it reuses the exact same sandbox and scoring engine.
+ * @typedef {Object} Lab
+ * @property {string} id
+ * @property {string} title
+ * @property {'predict'|'modify'|'implement'|'break'|'defend'} type
+ * @property {string} instructions
+ * @property {'worker'|'iframe'|'none'} runner
+ * @property {'code'|'answer'} submissionMode
+ * @property {string} initialCode - Use '' for answer-mode labs.
+ * @property {string} [sourceCode] - Read-only reference code shown alongside the editor.
+ * @property {string} [siteSnapshot] - Required when runner is 'iframe'.
+ * @property {string} [setupScript]
+ * @property {string} [testScript]
+ * @property {AnswerSchemaField[]} [answerSchema] - Required when submissionMode is 'answer'.
+ * @property {(runResultOrAnswers: any, extra?: any) => LabValidationResult} validate
+ * @property {string[]} hints - At least 2, ordered from vaguest to most specific.
+ * @property {string} solution
+ * @property {string} explanation
+ *
+ * The full content + behavior contract for one Guided Learning lesson.
+ * @typedef {Object} LessonContent
+ * @property {string} id - Stable, unique across every lesson.
+ * @property {string} moduleId - Must reference a real id in MODULES (game/modules.js).
+ * @property {string} title
+ * @property {number} estimatedMinutes
+ * @property {string} difficulty
+ * @property {string[]} prerequisites - Lesson ids, informational only — never gates access.
+ * @property {string[]} relatedMissionIds - Mission ids this lesson prepares a learner for.
+ * @property {string[]} skillTags - Must be real entries in SKILL_CATEGORIES (state/persistence.js).
+ * @property {WhyItMatters} whyItMatters
+ * @property {MentalModel} mentalModel
+ * @property {string} nuance - An important edge case, misconception, or interview-relevant detail.
+ * @property {string} securityAngle - A concrete security scenario tied to this concept.
+ * @property {string} runtimeSecurityAngle - How this concept applies to observing/restricting/instrumenting scripts at runtime.
+ * @property {string[]} keyTakeaways - 3-5 precise, standalone points.
+ * @property {LessonExample} example
+ * @property {string[]} [panels] - Which of trace/dom/network/alerts/eventPath the example/labs show.
+ * @property {Lab[]} labs - At least 3.
+ * @property {KnowledgeCheckItem[]} knowledgeCheck - 2-4 items.
+ * @property {string[]} interviewQuestions - Exactly 3.
+ */
+
 export const LAB_TYPES = ['predict', 'modify', 'implement', 'break', 'defend'];
 
 // Display labels for LAB_TYPES — the single source of truth so a lab's type badge

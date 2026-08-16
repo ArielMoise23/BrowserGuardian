@@ -81,6 +81,7 @@ const PROPAGATION_TEST = `(function () {
 })();
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'event-capture-bubble-delegation',
   moduleId: 'dom-and-events',

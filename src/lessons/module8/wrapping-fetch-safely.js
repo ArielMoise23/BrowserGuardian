@@ -75,6 +75,7 @@ console.log("hello");
 console.log("world");
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'wrapping-fetch-safely',
   moduleId: 'runtime-security-instrumentation',

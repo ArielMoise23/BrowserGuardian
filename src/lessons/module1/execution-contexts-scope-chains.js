@@ -63,6 +63,7 @@ outer();
 console.log("global sees:", value);
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'execution-contexts-scope-chains',
   moduleId: 'scope-execution-closures',

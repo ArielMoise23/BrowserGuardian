@@ -65,6 +65,7 @@ queueMicrotask(() => console.log("D: queueMicrotask (microtask)"));
 console.log("E: sync");
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'call-stack-event-loop',
   moduleId: 'async-event-loop',

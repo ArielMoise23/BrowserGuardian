@@ -66,6 +66,7 @@ var elapsed = performance.now() - start;
 console.log("Loop took " + elapsed.toFixed(2) + "ms, sum =", sum);
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'instrumentation-performance',
   moduleId: 'performance-and-reliability',

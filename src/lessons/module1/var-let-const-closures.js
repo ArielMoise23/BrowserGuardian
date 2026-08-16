@@ -54,6 +54,7 @@ for (let j = 0; j < 3; j++) {
 }
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'var-let-const-closures',
   moduleId: 'scope-execution-closures',

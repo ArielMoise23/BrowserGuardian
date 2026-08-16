@@ -50,6 +50,7 @@ try {
 }
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'origins-sop-cors',
   moduleId: 'browser-architecture-security',

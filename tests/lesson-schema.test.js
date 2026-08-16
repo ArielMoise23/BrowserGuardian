@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateLesson, validateLab, LAB_TYPES, MENTAL_MODEL_LABELS } from '../src/game/lessonSchema.js';
 import { lessonRegistry } from '../src/game/lessonRegistry.js';
-import { MODULES } from '../src/game/modules.js';
+import { MODULES, validateModules } from '../src/game/modules.js';
 import { registry as missionRegistry } from '../src/game/missionRegistry.js';
 import { SKILL_CATEGORIES } from '../src/state/persistence.js';
 
@@ -133,6 +133,30 @@ describe('validateLab (unit)', () => {
   test('flags an iframe-runner lab with no siteSnapshot', () => {
     const errors = validateLab({ ...minimalLab('a'), runner: 'iframe' }, 'lesson "x"');
     assert.ok(errors.some((e) => e.includes('siteSnapshot')));
+  });
+});
+
+describe('validateModules (unit)', () => {
+  test('accepts a minimal, valid module list', () => {
+    assert.doesNotThrow(() => validateModules([{ number: 1, id: 'a', title: 't', summary: 's' }]));
+  });
+
+  test('throws on a duplicate module id', () => {
+    const dup = [{ number: 1, id: 'a', title: 't1', summary: 's1' }, { number: 2, id: 'a', title: 't2', summary: 's2' }];
+    assert.throws(() => validateModules(dup), /duplicate module id/);
+  });
+
+  test('throws when a required field is missing', () => {
+    assert.throws(() => validateModules([{ number: 1, id: 'a', title: 't' }]), /summary/);
+  });
+
+  test('the real MODULES list is internally valid', () => {
+    assert.doesNotThrow(() => validateModules(MODULES));
+  });
+
+  test('every real module id is unique', () => {
+    const ids = MODULES.map((m) => m.id);
+    assert.equal(new Set(ids).size, ids.length);
   });
 });
 

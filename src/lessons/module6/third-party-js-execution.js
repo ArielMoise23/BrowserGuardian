@@ -50,6 +50,7 @@ incrementFromThirdParty();
 incrementFromFirstParty();
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'third-party-js-execution',
   moduleId: 'network-and-script-loading',

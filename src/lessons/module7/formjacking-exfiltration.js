@@ -50,6 +50,7 @@ console.log("a rendered as HTML:", document.getElementById('a').innerHTML);
 console.log("b rendered as text:", document.getElementById('b').textContent);
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'formjacking-exfiltration',
   moduleId: 'client-side-attacks',

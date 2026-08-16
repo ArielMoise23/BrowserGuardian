@@ -73,6 +73,7 @@ earlyReference("This bypasses the monitor entirely");
 console.log("This goes through the monitor");
 `;
 
+/** @type {import('../../game/lessonSchema.js').LessonContent} */
 export default {
   id: 'instrumentation-evasion',
   moduleId: 'runtime-security-instrumentation',
