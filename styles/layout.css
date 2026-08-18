@@ -69,10 +69,16 @@
   font-size: 0.9rem;
   font-weight: 600;
   padding: var(--space-2) 0;
+  border-bottom: 2px solid transparent;
 }
-.app-header__nav a:hover, .app-header__nav a.is-active {
+.app-header__nav a:hover {
   color: var(--color-text);
   text-decoration: none;
+}
+.app-header__nav a.is-active {
+  color: var(--color-text);
+  text-decoration: none;
+  border-bottom-color: var(--color-accent);
 }
 
 .app-header__status {
@@ -125,7 +131,12 @@
 }
 .learn-shell__content { min-width: 0; }
 @media (max-width: 900px) {
+  /* Below the 2-column breakpoint, the lesson itself (what the learner actually
+     clicked into) must come before the module tree — otherwise every lesson visit
+     opens on a full scroll of unrelated navigation instead of the content. */
   .learn-shell { grid-template-columns: 1fr; }
+  .learn-shell__content { order: 1; }
+  .learn-sidebar { order: 2; position: static; }
 }
 
 @media (max-width: 720px) {

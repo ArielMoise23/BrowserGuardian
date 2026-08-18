@@ -9,14 +9,16 @@ import { createRunController, renderTraceStepper } from './sandbox-run-controlle
 import { buildResult } from '../game/scoring.js';
 import { revealNext } from '../game/hints.js';
 import { labTypeLabel } from '../game/lessonSchema.js';
+import { store } from '../state/store.js';
 
 /**
  * A compact, embeddable lab card — reuses the exact same sandbox/scoring/hint engine
  * as mission-view.js (via sandbox-run-controller.js) so lab grading is behaviorally
  * validated, never a source-text comparison. `onResult(result)` fires after every
- * Submit with the built {passed, score, feedback, xpAward} result.
+ * Submit with the built {passed, score, feedback, xpAward} result. `draftKey`, if
+ * given, persists in-progress code across navigation (see store.saveDraft).
  */
-export function renderLabRunner(lab, { onResult } = {}) {
+export function renderLabRunner(lab, { onResult, draftKey } = {}) {
   const local = { revealedHints: 0, answers: {}, solutionRevealed: false };
 
   const previewHost = el('div', {});
@@ -41,8 +43,13 @@ export function renderLabRunner(lab, { onResult } = {}) {
   }
   reRenderHints();
 
+  const savedDraft = draftKey ? store.getState().drafts[draftKey] : undefined;
   const editor = lab.submissionMode === 'code'
-    ? createCodeEditor({ initialCode: lab.initialCode, ariaLabel: `${lab.title} code editor` })
+    ? createCodeEditor({
+        initialCode: savedDraft ?? lab.initialCode,
+        ariaLabel: `${lab.title} code editor`,
+        onChange: draftKey ? (code) => store.saveDraft(draftKey, code) : undefined,
+      })
     : null;
   const answerForm = lab.submissionMode === 'answer' ? renderAnswerForm(lab.answerSchema, local.answers) : null;
 
@@ -64,6 +71,7 @@ export function renderLabRunner(lab, { onResult } = {}) {
     local.revealedHints = 0;
     local.answers = {};
     editor?.setValue(lab.initialCode);
+    if (draftKey) store.clearDraft(draftKey);
     reRenderHints();
     mount(feedbackSlot, '');
     if (lab.runner === 'iframe' && lab.submissionMode === 'answer') runSandbox();
@@ -149,7 +157,10 @@ function renderFeedback(lab, result) {
     .map(([key, label]) => renderScoreMeter(label, result.score[key]));
 
   return el('div', { class: 'debrief' }, [
-    el('h4', {}, result.passed ? 'Passed' : 'Not yet'),
+    el('h4', { class: `debrief__verdict debrief__verdict--${result.passed ? 'success' : 'danger'}` }, [
+      el('span', { 'aria-hidden': 'true' }, result.passed ? '✓ ' : '✕ '),
+      result.passed ? 'Passed' : 'Not yet',
+    ]),
     el('div', { class: 'debrief__score-grid' }, meters),
     result.feedback.length ? el('ul', {}, result.feedback.map((f) => el('li', {}, f))) : null,
     el('p', {}, lab.explanation),

@@ -58,7 +58,7 @@ function renderChapterCard(chapter, registry, state) {
     : el('p', { class: 'empty-state' }, 'Content pending in this lab build.');
 
   return el('div', { class: `chapter-card${locked ? ' chapter-card--locked' : ''}` }, [
-    el('div', { class: 'chapter-card__title' }, [el('span', { class: 'chapter-card__num' }, `Ch.${chapter.number}`), el('span', {}, chapter.title)]),
+    el('h2', { class: 'chapter-card__title' }, [el('span', { class: 'chapter-card__num' }, `Ch.${chapter.number}`), el('span', {}, chapter.title)]),
     el('p', { class: 'chapter-card__desc' }, chapter.summary),
     missionList,
   ]);

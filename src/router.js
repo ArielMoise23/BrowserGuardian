@@ -28,6 +28,8 @@ function setActiveNav(hash) {
       || (hash.startsWith('#/mission') && href === '#/map')
       || (hash.startsWith('#/learn') && href === '#/learn');
     a.classList.toggle('is-active', active);
+    if (active) a.setAttribute('aria-current', 'page');
+    else a.removeAttribute('aria-current');
   });
 }
 

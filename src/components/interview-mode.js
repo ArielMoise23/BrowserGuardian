@@ -1,4 +1,4 @@
-import { el, mount } from '../utils/dom.js';
+import { el, mount, field } from '../utils/dom.js';
 import { pickQuestions, categoryLabel } from '../game/interviewBank.js';
 import { store } from '../state/store.js';
 import { weakestCategories, strongestCategories } from '../state/skills.js';
@@ -32,10 +32,7 @@ export function renderInterviewMode(initialState) {
       ]),
       el('h2', {}, 'Interview Mode'),
       el('p', {}, q.prompt),
-      el('div', { class: 'field' }, [
-        el('label', {}, 'Answer out loud, or type it here, before revealing the model answer:'),
-        el('textarea', { rows: '5', id: 'interview-answer' }),
-      ]),
+      field('Answer out loud, or type it here, before revealing the model answer:', el('textarea', { rows: '5' })),
       session.revealed
         ? el('div', {}, [
             el('div', { class: 'debrief__section' }, [el('h3', {}, 'Model answer'), el('p', {}, q.modelAnswer)]),

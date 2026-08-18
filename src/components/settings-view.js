@@ -1,4 +1,4 @@
-import { el, mount } from '../utils/dom.js';
+import { el, mount, field } from '../utils/dom.js';
 import { store } from '../state/store.js';
 import { showToast } from './toast.js';
 import { renderSkillBars } from './skill-radar.js';
@@ -10,14 +10,11 @@ export function renderSettings(state) {
     const current = store.getState();
     mount(container, [
       el('h1', {}, 'Settings'),
-      el('div', { class: 'field' }, [
-        el('label', {}, 'Reduced motion'),
-        el('select', {
-          onChange: (e) => store.updateSettings({ reducedMotion: e.target.value }),
-        }, ['system', 'on', 'off'].map((opt) =>
-          el('option', { value: opt, selected: current.settings.reducedMotion === opt || undefined }, opt)
-        )),
-      ]),
+      field('Reduced motion', el('select', {
+        onChange: (e) => store.updateSettings({ reducedMotion: e.target.value }),
+      }, ['system', 'on', 'off'].map((opt) =>
+        el('option', { value: opt, selected: current.settings.reducedMotion === opt || undefined }, opt)
+      ))),
       el('p', {}, 'Your OS-level "prefers reduced motion" setting is always respected regardless of this option.'),
       el('hr', {}),
       el('h2', {}, 'Skill ratings'),

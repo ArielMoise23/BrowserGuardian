@@ -1,4 +1,4 @@
-import { el, mount } from '../utils/dom.js';
+import { el, mount, field } from '../utils/dom.js';
 import { renderPanel } from './panel.js';
 import { createCodeEditor } from './code-editor.js';
 import { renderLabRunner } from './lab-runner.js';
@@ -17,7 +17,7 @@ const SELF_SCORE_OPTIONS = [
 export function renderLessonView(lesson, { focusLabId } = {}) {
   store.visitLesson(lesson.id);
 
-  const readinessSlot = el('div', {});
+  const readinessSlot = el('div', { id: 'lesson-readiness' });
   const bookmarkBtn = el('button', { class: 'btn btn--sm' });
   const noteArea = el('textarea', {
     rows: '4',
@@ -56,7 +56,16 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
     ]),
   ]);
 
-  const explanationSection = el('div', { class: 'card' }, [
+  const jumpNav = el('nav', { class: 'lesson-jump-nav', 'aria-label': 'Jump to section' }, [
+    el('a', { href: '#lesson-explanation' }, 'Explanation'),
+    el('a', { href: '#lesson-tldr' }, 'TL;DR'),
+    el('a', { href: '#lesson-example' }, 'Code example'),
+    el('a', { href: '#lesson-practice' }, 'Practice'),
+    el('a', { href: '#lesson-knowledge-check' }, 'Knowledge check'),
+    el('a', { href: '#lesson-readiness' }, 'Mission readiness'),
+  ]);
+
+  const explanationSection = el('div', { class: 'card', id: 'lesson-explanation' }, [
     el('h2', {}, 'Explanation'),
     ...lesson.explanation.map((p) => el('p', {}, p)),
     el('div', { class: 'distinction-list' }, lesson.distinctions.map((d) =>
@@ -67,18 +76,20 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
     )),
   ]);
 
-  const tldrSection = el('div', { class: 'card' }, [
+  const tldrSection = el('div', { class: 'card', id: 'lesson-tldr' }, [
     el('h2', {}, 'TL;DR'),
     el('ul', {}, lesson.tldr.map((point) => el('li', {}, point))),
   ]);
 
   const exampleSection = renderExampleSection(lesson);
+  exampleSection.id = 'lesson-example';
 
-  const labsSection = el('div', { class: 'card' }, [
+  const labsSection = el('div', { class: 'card', id: 'lesson-practice' }, [
     el('h2', {}, 'Practice'),
     el('p', {}, 'Each activity is graded on what your code actually does, not on matching a fixed answer string — multiple valid solutions are accepted. Submitting reveals a full explanation.'),
     ...lesson.labs.map((lab) => {
       const { element } = renderLabRunner(lab, {
+        draftKey: `lab:${lesson.id}:${lab.id}`,
         onResult: (result) => {
           store.submitLabResult(lesson, lab, result);
           renderReadiness();
@@ -102,6 +113,7 @@ export function renderLessonView(lesson, { focusLabId } = {}) {
 
   const view = el('div', { class: 'mission-view' }, [
     header,
+    jumpNav,
     explanationSection,
     tldrSection,
     exampleSection,
@@ -142,7 +154,12 @@ function renderExampleSection(lesson) {
   const controller = createRunController({ runner: ex.runner, panels: lesson.panels, hostElement: previewHost });
   const panelsWanted = controller.panelsWanted;
 
-  const editor = createCodeEditor({ initialCode: ex.code, ariaLabel: `${lesson.title} example code` });
+  const draftKey = `example:${lesson.id}`;
+  const editor = createCodeEditor({
+    initialCode: store.getState().drafts[draftKey] ?? ex.code,
+    ariaLabel: `${lesson.title} example code`,
+    onChange: (code) => store.saveDraft(draftKey, code),
+  });
   const predictionArea = el('textarea', { rows: '3', placeholder: 'Type your prediction here before running…' });
   const compareNote = el('p', { class: 'compare-note' }, '');
 
@@ -160,6 +177,7 @@ function renderExampleSection(lesson) {
   function reset() {
     controller.reset();
     editor.setValue(ex.code);
+    store.clearDraft(draftKey);
     compareNote.textContent = '';
   }
 
@@ -177,7 +195,7 @@ function renderExampleSection(lesson) {
   return el('div', { class: 'card' }, [
     el('h2', {}, 'Code example: predict, run, observe, modify'),
     el('p', {}, ex.predictPrompt),
-    el('div', { class: 'field' }, [el('label', {}, 'Your prediction'), predictionArea]),
+    field('Your prediction', predictionArea),
     ex.runner === 'iframe' ? renderPanel('Simulation', previewHost, { flush: true }) : null,
     renderPanel('Example code (editable — modify it and run again)', editor.element, { flush: true }),
     el('div', { class: 'btn-row' }, [runBtn, resetBtn]),
@@ -196,7 +214,7 @@ function renderKnowledgeCheck(lesson) {
     function draw() {
       mount(bodySlot, [
         el('p', {}, q.question),
-        el('div', { class: 'field' }, answerArea),
+        field('Your answer', answerArea),
         state.revealed
           ? el('div', {}, [
               el('div', { class: 'debrief__section' }, [el('h4', {}, 'Model answer'), el('p', {}, q.modelAnswer)]),
@@ -215,7 +233,7 @@ function renderKnowledgeCheck(lesson) {
     return el('div', { class: 'card' }, bodySlot);
   });
 
-  return el('div', {}, [el('h2', {}, 'Knowledge check'), ...cards]);
+  return el('div', { id: 'lesson-knowledge-check' }, [el('h2', {}, 'Knowledge check'), ...cards]);
 }
 
 function buildReadinessSection(lesson) {

@@ -44,7 +44,7 @@ function renderModuleCard(mod, state) {
     : el('p', { class: 'empty-state' }, 'Content pending in this lab build.');
 
   return el('div', { class: `chapter-card${locked ? ' chapter-card--locked' : ''}` }, [
-    el('div', { class: 'chapter-card__title' }, [el('span', { class: 'chapter-card__num' }, `Mod.${mod.number}`), el('span', {}, mod.title)]),
+    el('h2', { class: 'chapter-card__title' }, [el('span', { class: 'chapter-card__num' }, `Mod.${mod.number}`), el('span', {}, mod.title)]),
     el('p', { class: 'chapter-card__desc' }, mod.summary),
     lessons.length ? el('div', { class: 'learn-sidebar__progress-track' }, el('div', { class: 'learn-sidebar__progress-fill', style: `width:${Math.round(progress.fraction * 100)}%` })) : null,
     lessonList,

@@ -3,10 +3,17 @@ import { formatPercent } from '../utils/format.js';
 
 const DIMENSION_LABELS = { correctness: 'Correctness', security: 'Security', compatibility: 'Compatibility', performance: 'Performance' };
 
+// Fraction is always shown as a number too — color is reinforcement, not the only signal.
+function scoreTone(fraction) {
+  if (fraction >= 0.7) return 'success';
+  if (fraction >= 0.4) return 'warning';
+  return 'danger';
+}
+
 export function renderScoreMeter(label, fraction) {
   return el('div', { class: 'score-meter' }, [
     el('div', { class: 'score-meter__label' }, [el('span', {}, label), el('span', {}, formatPercent(fraction))]),
-    el('div', { class: 'score-meter__bar' }, el('div', { class: 'score-meter__fill', style: `width:${Math.round(fraction * 100)}%` })),
+    el('div', { class: 'score-meter__bar' }, el('div', { class: `score-meter__fill score-meter__fill--${scoreTone(fraction)}`, style: `width:${Math.round(fraction * 100)}%` })),
   ]);
 }
 
@@ -30,7 +37,10 @@ export function renderDebrief(mission, result, relatedLessons = []) {
 
   return el('div', { class: 'debrief' }, [
     el('div', {}, [
-      el('h2', {}, result.passed ? 'Mission passed' : 'Not yet — review the debrief below'),
+      el('h2', { class: `debrief__verdict debrief__verdict--${result.passed ? 'success' : 'danger'}` }, [
+        el('span', { 'aria-hidden': 'true' }, result.passed ? '✓ ' : '✕ '),
+        result.passed ? 'Mission passed' : 'Not yet — review the debrief below',
+      ]),
       el('p', {}, `+${result.xpAward} XP toward this mission's ${mission.xp} XP total.`),
     ]),
     reviewLink,

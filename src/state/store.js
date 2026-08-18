@@ -96,7 +96,24 @@ function createStore() {
     },
 
     resetLesson(lessonId) {
-      set(resetLessonProgress(state, lessonId));
+      const next = resetLessonProgress(state, lessonId);
+      const drafts = Object.fromEntries(
+        Object.entries(next.drafts).filter(([key]) => key !== `example:${lessonId}` && !key.startsWith(`lab:${lessonId}:`))
+      );
+      set({ ...next, drafts });
+    },
+
+    /** Saves in-progress, unsubmitted code so it survives leaving and returning to this editor. */
+    saveDraft(draftKey, code) {
+      set({ ...state, drafts: { ...state.drafts, [draftKey]: code } });
+    },
+
+    /** Called on an explicit Reset so a cleared editor doesn't repopulate from an old draft. */
+    clearDraft(draftKey) {
+      if (!(draftKey in state.drafts)) return;
+      const drafts = { ...state.drafts };
+      delete drafts[draftKey];
+      set({ ...state, drafts });
     },
   };
 }

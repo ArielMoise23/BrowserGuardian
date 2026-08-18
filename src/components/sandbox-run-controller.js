@@ -79,6 +79,16 @@ export function createRunController({ runner, panels, hostElement, isSuspiciousN
   renderAll();
 
   /**
+   * Status text is never the only signal — every state below pairs a distinct word
+   * ("Running…", "Run complete.", "Error: …") with a color, so the state doesn't
+   * depend on color perception alone.
+   */
+  function setStatus(text, tone) {
+    slots.statusSlot.textContent = text;
+    slots.statusSlot.className = `trace-step-indicator${tone ? ` trace-step-indicator--${tone}` : ''}`;
+  }
+
+  /**
    * @param {string|object} codeOrPayload - a code string for runner:'worker', or the
    *   full { siteHtml, setupScript, code, testScript } payload for runner:'iframe'
    *   (iframe testScript must already be included in the payload object itself).
@@ -87,7 +97,7 @@ export function createRunController({ runner, panels, hostElement, isSuspiciousN
   async function run(codeOrPayload, testScript) {
     if (!sandbox || local.running) return local.lastResult;
     local.running = true;
-    slots.statusSlot.textContent = 'Running…';
+    setStatus('Running…', 'running');
     local.combinedEvents = [];
     local.networkLog = [];
     local.alerts = [];
@@ -109,7 +119,9 @@ export function createRunController({ runner, panels, hostElement, isSuspiciousN
     local.running = false;
     local.lastResult = result;
     if (panelsWanted.includes('trace')) reRenderTrace();
-    slots.statusSlot.textContent = result.timedOut ? 'Timed out.' : result.error ? `Error: ${result.error}` : 'Run complete.';
+    if (result.timedOut) setStatus('Timed out.', 'danger');
+    else if (result.error) setStatus(`Error: ${result.error}`, 'danger');
+    else setStatus('Run complete.', 'success');
     return result;
   }
 
@@ -123,7 +135,7 @@ export function createRunController({ runner, panels, hostElement, isSuspiciousN
     local.traceSteps = [];
     local.traceIndex = 0;
     local.lastResult = null;
-    slots.statusSlot.textContent = '';
+    setStatus('', null);
     renderAll();
   }
 

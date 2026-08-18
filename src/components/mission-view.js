@@ -36,8 +36,13 @@ export function renderMissionView(mission, registry) {
   }
   reRenderHints();
 
+  const draftKey = `mission:${mission.id}`;
   const editor = mission.submissionMode === 'code'
-    ? createCodeEditor({ initialCode: mission.initialCode, ariaLabel: `${mission.title} code editor` })
+    ? createCodeEditor({
+        initialCode: store.getState().drafts[draftKey] ?? mission.initialCode,
+        ariaLabel: `${mission.title} code editor`,
+        onChange: (code) => store.saveDraft(draftKey, code),
+      })
     : null;
 
   const answerForm = mission.submissionMode === 'answer' ? renderAnswerForm(mission.answerSchema, local.answers) : null;
@@ -60,6 +65,7 @@ export function renderMissionView(mission, registry) {
     local.revealedHints = 0;
     local.answers = {};
     editor?.setValue(mission.initialCode);
+    store.clearDraft(draftKey);
     reRenderHints();
     mount(debriefSlot, '');
     if (mission.submissionMode === 'answer' && mission.runner === 'iframe') runSandbox();

@@ -5,11 +5,16 @@
   --color-bg-panel: #212226;
   --color-bg-inset: #131418;
   --color-border: #33353c;
-  --color-border-strong: #46484f;
+  /* #6c6f79, not the original #46484f — that was 1.74:1 against --color-bg-panel, well
+     under the 3:1 WCAG non-text-contrast floor for UI component boundaries (button/input
+     borders). This value clears 3:1 against both --color-bg and --color-bg-panel. */
+  --color-border-strong: #6c6f79;
 
   --color-text: #e3e4e8;
   --color-text-dim: #9a9ca5;
-  --color-text-faint: #6c6e77;
+  /* #84868f, not the original #6c6e77 — that was 3.49:1 on --color-bg, below the 4.5:1
+     WCAG AA floor for normal-size text. This still reads as the same muted "faint" step. */
+  --color-text-faint: #84868f;
 
   --color-accent: #4fa8ff;
   --color-accent-strong: #7cc0ff;
@@ -25,6 +30,15 @@
 
   --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Type scale — every heading/text size in the app should reference one of these
+     rather than a one-off rem value, so hierarchy stays consistent page to page. */
+  --text-xs: 0.72rem;
+  --text-sm: 0.82rem;
+  --text-base: 0.95rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.4rem;
+  --text-2xl: 1.75rem;
 
   --radius-sm: 4px;
   --radius-md: 8px;

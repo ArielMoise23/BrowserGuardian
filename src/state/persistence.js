@@ -36,6 +36,9 @@ export function defaultState() {
     bookmarks: [], // lessonId[]
     notes: {}, // { [lessonId]: string }
     mistakes: [], // { id, lessonId, labId, mistakeType, date, failedAttempts, resolved, resolvedDate }
+    drafts: {}, // { [draftKey]: string } — in-progress code editor content, keyed by
+    // "example:<lessonId>", "lab:<lessonId>:<labId>", or "mission:<missionId>", so a
+    // learner's typed-but-unsubmitted code survives navigating away and back.
   };
 }
 

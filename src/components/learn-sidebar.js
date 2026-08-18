@@ -46,9 +46,11 @@ export function renderLearnSidebar({ activeLessonId } = {}) {
           const entry = getLessonEntry(state, lesson.id);
           const bookmarked = state.bookmarks.includes(lesson.id);
           const icon = entry.completed ? '✓' : bookmarked ? '★' : '›';
+          const isActive = lesson.id === activeLessonId;
           return el('a', {
-            class: `learn-sidebar__lesson-link${lesson.id === activeLessonId ? ' is-active' : ''}`,
+            class: `learn-sidebar__lesson-link${isActive ? ' is-active' : ''}`,
             href: `#/learn/${lesson.id}`,
+            'aria-current': isActive ? 'page' : undefined,
           }, `${icon} ${lesson.title}`);
         })),
       ]);

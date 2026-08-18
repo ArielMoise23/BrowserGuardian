@@ -1,4 +1,4 @@
-import { el } from '../utils/dom.js';
+import { el, field } from '../utils/dom.js';
 
 /**
  * Renders a structured Q&A form from an answerSchema (boolean/select/multiselect/text
@@ -8,28 +8,22 @@ import { el } from '../utils/dom.js';
 export function renderAnswerForm(answerSchema, answers) {
   const fields = answerSchema.map((q) => {
     if (q.type === 'boolean') {
-      return el('div', { class: 'field' }, [
-        el('label', {}, q.prompt),
-        el('select', { onChange: (e) => { answers[q.id] = e.target.value; } }, [
-          el('option', { value: '' }, 'Select…'),
-          el('option', { value: 'true' }, 'True'),
-          el('option', { value: 'false' }, 'False'),
-        ]),
-      ]);
+      return field(q.prompt, el('select', { onChange: (e) => { answers[q.id] = e.target.value; } }, [
+        el('option', { value: '' }, 'Select…'),
+        el('option', { value: 'true' }, 'True'),
+        el('option', { value: 'false' }, 'False'),
+      ]));
     }
     if (q.type === 'select') {
-      return el('div', { class: 'field' }, [
-        el('label', {}, q.prompt),
-        el('select', { onChange: (e) => { answers[q.id] = e.target.value; } }, [
-          el('option', { value: '' }, 'Select…'),
-          ...q.options.map((opt) => el('option', { value: opt }, opt)),
-        ]),
-      ]);
+      return field(q.prompt, el('select', { onChange: (e) => { answers[q.id] = e.target.value; } }, [
+        el('option', { value: '' }, 'Select…'),
+        ...q.options.map((opt) => el('option', { value: opt }, opt)),
+      ]));
     }
     if (q.type === 'multiselect') {
       answers[q.id] = [];
-      return el('div', { class: 'field' }, [
-        el('label', {}, q.prompt),
+      return el('fieldset', { class: 'field' }, [
+        el('legend', {}, q.prompt),
         el('div', {}, q.options.map((opt) => {
           const id = `${q.id}-${opt}`;
           return el('div', {}, [
@@ -43,10 +37,7 @@ export function renderAnswerForm(answerSchema, answers) {
         })),
       ]);
     }
-    return el('div', { class: 'field' }, [
-      el('label', {}, q.prompt),
-      el('textarea', { rows: '3', onInput: (e) => { answers[q.id] = e.target.value; } }),
-    ]);
+    return field(q.prompt, el('textarea', { rows: '3', onInput: (e) => { answers[q.id] = e.target.value; } }));
   });
   return el('form', { onSubmit: (e) => e.preventDefault() }, fields);
 }

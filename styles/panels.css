@@ -8,6 +8,13 @@
   overflow: hidden;
   border: 1px solid var(--color-border);
 }
+/* The textarea's own outline is suppressed below (it would draw a rectangle over the
+   line-number gutter too); this shows focus on the whole editor instead, so keyboard
+   users still get a visible indicator. */
+.code-editor:focus-within {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
 .code-editor__lines {
   position: absolute;
   top: 0; left: 0; bottom: 0;
@@ -79,6 +86,9 @@
 .frame-item--macro { border-left-color: var(--color-text-dim); }
 .trace-controls { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
 .trace-step-indicator { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-dim); }
+.trace-step-indicator--running { color: var(--color-accent-strong); }
+.trace-step-indicator--success { color: var(--color-success); }
+.trace-step-indicator--danger { color: var(--color-danger); }
 
 /* DOM inspector */
 .dom-tree { font-family: var(--font-mono); font-size: 0.78rem; }

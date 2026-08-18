@@ -6,7 +6,7 @@ import { el } from '../utils/dom.js';
  * training tool, and pulling in a code-editor dependency would hide exactly the kind
  * of raw JS behavior the game is trying to teach.
  */
-export function createCodeEditor({ initialCode = '', readOnly = false, ariaLabel = 'Code editor' } = {}) {
+export function createCodeEditor({ initialCode = '', readOnly = false, ariaLabel = 'Code editor', onChange } = {}) {
   const lines = el('div', { class: 'code-editor__lines', 'aria-hidden': 'true' }, '1');
   const textarea = el('textarea', {
     spellcheck: 'false',
@@ -25,7 +25,7 @@ export function createCodeEditor({ initialCode = '', readOnly = false, ariaLabel
     lines.scrollTop = textarea.scrollTop;
   }
 
-  textarea.addEventListener('input', syncLines);
+  textarea.addEventListener('input', () => { syncLines(); onChange?.(textarea.value); });
   textarea.addEventListener('scroll', syncScroll);
   syncLines();
 
