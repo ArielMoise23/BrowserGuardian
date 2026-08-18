@@ -56,9 +56,16 @@ export function createRunController({ runner, panels, hostElement, isSuspiciousN
       ? `Step ${local.traceIndex + 1} / ${local.traceSteps.length} — ${step.description}`
       : 'No run yet';
   }
-  function reRenderTrace() {
+  /**
+   * @param {boolean} landOnFirstStep - true once the run has fully finished, so the
+   *   learner lands on step 1 and steps forward with Next — not on the last step,
+   *   which would mean immediately having to walk all the way back with Prev. False
+   *   while events are still streaming in during the run itself, which keeps the view
+   *   following the newest step as it happens.
+   */
+  function reRenderTrace(landOnFirstStep = false) {
     local.traceSteps = buildTrace(local.combinedEvents);
-    local.traceIndex = local.traceSteps.length - 1;
+    local.traceIndex = landOnFirstStep ? 0 : local.traceSteps.length - 1;
     renderTraceStep();
   }
   function reRenderDom() {
@@ -118,7 +125,7 @@ export function createRunController({ runner, panels, hostElement, isSuspiciousN
 
     local.running = false;
     local.lastResult = result;
-    if (panelsWanted.includes('trace')) reRenderTrace();
+    if (panelsWanted.includes('trace')) reRenderTrace(true);
     if (result.timedOut) setStatus('Timed out.', 'danger');
     else if (result.error) setStatus(`Error: ${result.error}`, 'danger');
     else setStatus('Run complete.', 'success');
@@ -174,9 +181,11 @@ export function renderTraceStepper(controller) {
       el('div', {}, [el('div', { class: 'trace-col__title' }, 'Macrotask Queue'), controller.slots.macroSlot]),
     ]),
     el('div', { class: 'trace-controls' }, [
-      el('button', { class: 'btn btn--sm', onClick: () => controller.stepBack() }, '◀ Prev'),
       controller.slots.traceStepLabel,
-      el('button', { class: 'btn btn--sm', onClick: () => controller.stepForward() }, 'Next ▶'),
+      el('div', { class: 'trace-controls__buttons' }, [
+        el('button', { class: 'btn btn--sm', onClick: () => controller.stepBack() }, '◀ Prev'),
+        el('button', { class: 'btn btn--sm', onClick: () => controller.stepForward() }, 'Next ▶'),
+      ]),
     ]),
   ]);
 }

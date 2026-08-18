@@ -73,7 +73,16 @@
 .trace-columns { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-3); }
 @media (max-width: 640px) { .trace-columns { grid-template-columns: 1fr; } }
 .trace-col__title { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--color-text-dim); margin-bottom: var(--space-2); }
-.frame-stack { display: flex; flex-direction: column-reverse; gap: 2px; min-height: 40px; }
+/* Fixed height, not min-height: a step with more frames/queue items must not grow this
+   column, or the Prev/Next controls below the three columns would shift position on
+   every step — exactly while the learner is repeatedly clicking Next in place. */
+.frame-stack { display: flex; flex-direction: column-reverse; justify-content: center; gap: 2px; height: 140px; overflow-y: auto; }
+/* When a stack/queue is empty (call-stack-panel.js / queue-panel.js render .empty-state
+   here instead of .frame-stack), it must reserve the exact same height — otherwise the
+   very last step, where everything has finished and is empty, is the one step that
+   shrinks the row and moves the Prev/Next controls, right after the sequence users step
+   through most. */
+.trace-columns .empty-state { height: 140px; margin: 0; padding: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
 .frame-item {
   font-family: var(--font-mono);
   font-size: 0.75rem;
@@ -84,7 +93,18 @@
 }
 .frame-item--micro { border-left-color: var(--color-warning); }
 .frame-item--macro { border-left-color: var(--color-text-dim); }
-.trace-controls { display: flex; align-items: center; gap: var(--space-2); margin-top: var(--space-3); }
+.trace-controls { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
+/* The step description's length varies a lot ("Global script starts running" vs.
+   "setTimeout #6 (0ms) starts running (macrotask)" vs. an arbitrary console.log
+   string). A fixed height (not min-height/line-clamp, which only cap the max and
+   still let 1-line text sit shorter than 2-line text) forces every step — long or
+   short — to occupy exactly the same space, so the Prev/Next row below never moves. */
+.trace-controls .trace-step-indicator {
+  line-height: 1.4;
+  height: 2.8em;
+  overflow: hidden;
+}
+.trace-controls__buttons { display: flex; align-items: center; gap: var(--space-2); }
 .trace-step-indicator { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-dim); }
 .trace-step-indicator--running { color: var(--color-accent-strong); }
 .trace-step-indicator--success { color: var(--color-success); }

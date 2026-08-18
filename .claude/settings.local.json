@@ -37,7 +37,8 @@
       "Bash(curl -s http://localhost:8080/src/utils/dom.js)",
       "Bash(curl -s http://localhost:8080/src/game/modules.js)",
       "Bash(node --input-type=module -e ' *)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8080/)"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8080/)",
+      "Bash(node verify-static-buttons3.js)"
     ]
   }
 }
